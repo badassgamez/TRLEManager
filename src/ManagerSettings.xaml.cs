@@ -150,6 +150,9 @@ namespace TRLEManager
 
 		private void ShowHideAuxButtons()
 		{
+			if (_gamepad == null)
+				return;
+
 			int auxCount = (int)_gamepad.ButtonCount - 12;
 
 			for (int i = 0; i < 5; i++)
@@ -161,6 +164,9 @@ namespace TRLEManager
 
 		private void HookGamepad()
 		{
+			if (_selectedGamepad == null)
+				return;
+
 			_gamepad = _selectedGamepad.ToGamepad();
 			_gamepad.OnGamepadChanged += _gamepad_OnGamepadChanged;
 			
@@ -332,17 +338,20 @@ namespace TRLEManager
 
 			_selectedGamepad = listSelectionWin.Selection as GamepadInfo;
 
-			_gamepad.StopMonitor();
+			_gamepad?.StopMonitor();
 
 			HookGamepad();
 
 			ShowHideAuxButtons();
 
-			TextBox_GamepadName.Text = _selectedGamepad.ToString();
+			TextBox_GamepadName.Text = _selectedGamepad == null ? "" : _selectedGamepad.ToString();
 		}
 
 		private void Window_Closed(object sender, EventArgs e)
 		{
+			if (_gamepad == null)
+				return;
+
 			_gamepad.StopMonitor();
 		}
 

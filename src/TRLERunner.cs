@@ -33,13 +33,18 @@ namespace TRLEManager
 		}
 
 		public TRLERunner(TRLE trle) {
-			_gamepad = new VirtualGamepad(App.GetGamepadInfo().ToGamepad());
+			var gamepadInfo = App.GetGamepadInfo();
+			var baseGamepad = gamepadInfo?.ToGamepad();
+
+			if (baseGamepad != null)
+				_gamepad = new VirtualGamepad(baseGamepad);
 			_trle = trle;
 			_p = null;
 
 			CompilePadToKeyMap();
 
-            _gamepad.OnVirtualChanged += _gamepad_OnVirtualChanged;
+			if (_gamepad != null)
+				_gamepad.OnVirtualChanged += _gamepad_OnVirtualChanged;
         }
 			
 		public void Start()
@@ -53,7 +58,7 @@ namespace TRLEManager
 			_p.EnableRaisingEvents = true;
 			_p.Exited += _p_Exited;
 
-			_gamepad.StartMonitor();
+			_gamepad?.StartMonitor();
 		}
 
 		public void CompilePadToKeyMap()
@@ -89,7 +94,7 @@ namespace TRLEManager
 		private void _p_Exited(object sender, EventArgs e)
 		{
 			_p = null;
-			_gamepad.StopMonitor();
+			_gamepad?.StopMonitor();
 
 			OnClosed?.Invoke(this, null);
 		}
