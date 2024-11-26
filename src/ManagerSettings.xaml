@@ -1,0 +1,228 @@
+﻿<!--
+    Copyright © badassgamez Ltd.
+    Author:     badassgamez
+    Created:    11.14.2024
+    License:    MIT
+-->
+<Window x:Class="TRLEManager.ManagerSettings"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TRLEManager"
+        mc:Ignorable="d"
+        Title="ManagerSettings" Height="800" Width="800" Style="{StaticResource AppWindowStyle}" Closed="Window_Closed">
+
+    <Grid Grid.IsSharedSizeScope="True">
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="Auto"/>
+            <ColumnDefinition/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition SharedSizeGroup="RowGroup" Height="Auto"/>
+            <RowDefinition SharedSizeGroup="RowGroup" Height="Auto"/>
+            <RowDefinition SharedSizeGroup="RowGroup" Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition SharedSizeGroup="RowGroup" Height="Auto"/>
+            <RowDefinition />
+            <RowDefinition SharedSizeGroup="RowGroup" Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Label Grid.Column="0" Grid.Row="0" Content="TRLE Install Path" HorizontalAlignment="Right" />
+        <Label Grid.Column="0" Grid.Row="1" Content="Downloads Path" HorizontalAlignment="Right" />
+        <Label Grid.Column="0" Grid.Row="2" Content="Browse TRLE URL" HorizontalAlignment="Right" />
+        <Label Grid.Column="0" Grid.Row="3" Content="Gamepad" HorizontalAlignment="Right" />
+        <Label Grid.Column="0" Grid.Row="5" Content="Keyboard Controls" HorizontalAlignment="Right" />
+        <Grid Grid.Column="1" Grid.Row="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox Name="TextBox_TRLEInstallPath" Grid.Column="0" />
+            <Button Grid.Column="1" Content="Browse..." Click="Button_TRLEInstallPathBrowse_Click" Margin="5" />
+        </Grid>
+
+        <Grid Grid.Column="1" Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox Name="TextBox_DownloadsPath" Grid.Column="0" />
+            <Button Grid.Column="1" Content="Browse..." Click="Button_DownloadsPath_Click" Margin="5" />
+        </Grid>
+
+        <TextBox Grid.Column="1" Grid.Row="2" Name="TextBox_BrowseTRLEURL" />
+
+        <Grid Grid.Column="1" Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition />
+                <RowDefinition />
+            </Grid.RowDefinitions>
+
+            <TextBox Name="TextBox_GamepadName" Grid.Row="0" Grid.Column="0" IsReadOnly="True" />
+            <Button Click="Button_SelectGamepad_Click" Grid.Row="0" Grid.Column="1" Content="Select Gamepad"/>
+        </Grid>
+        <Grid Grid.Column="1" Grid.Row="4" HorizontalAlignment="Left" VerticalAlignment="Top">
+            <Button Tag="{x:Static local:VirtualGamepadButton.L2}" Click="Button_GamepadButton_Click" Name="Button_L2" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,0,0,0" Width="100" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">L2</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.L1}" Click="Button_GamepadButton_Click" Name="Button_L1" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="10,40,0,0" Width="100" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">L1</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.HatUp}" Click="Button_GamepadButton_Click" Name="Button_HatUp" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="40,80,0,0" Width="40" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">Hat Up</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.HatLeft}" Click="Button_GamepadButton_Click" Name="Button_HatLeft" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="0,120,0,0" Width="40" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">Hat Left</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.HatRight}" Click="Button_GamepadButton_Click" Name="Button_HatRight" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="80,120,0,0" Width="40" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">Hat Right</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.HatDown}" Click="Button_GamepadButton_Click" Name="Button_HatDown" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="40,160,0,0" Width="40" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">Hat Down</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.Start}" Click="Button_GamepadButton_Click" Name="Button_Start" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="120,60,0,0" Width="40" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">Start</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.Menu}" Click="Button_GamepadButton_Click" Name="Button_Menu" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="180,60,0,0" Width="40" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">Menu</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.R2}" Click="Button_GamepadButton_Click" Name="Button_R2" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="230,0,0,0" Width="100" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">R2</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.R2}" Click="Button_GamepadButton_Click" Name="Button_R1" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="230,40,0,0" Width="100" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">R1</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.Y}" Click="Button_GamepadButton_Click" Name="Button_Y" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="260,80,0,0" Width="40" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">Y</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.X}" Click="Button_GamepadButton_Click" Name="Button_X" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="220,120,0,0" Width="40" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">X</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.B}" Click="Button_GamepadButton_Click" Name="Button_B" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="300,120,0,0" Width="40" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">B</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.A}" Click="Button_GamepadButton_Click" Name="Button_A" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="260,160,0,0" Width="40" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">A</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.L3}" Click="Button_GamepadButton_Click" Name="Button_L3" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="120,180,0,0" Width="40" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">L3</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.R3}" Click="Button_GamepadButton_Click" Name="Button_R3" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="180,180,0,0" Width="40" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">R3</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.Aux1}" Click="Button_GamepadButton_Click" Name="Button_Aux1" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="360,0,0,0" Width="60" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">Aux1</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.Aux2}" Click="Button_GamepadButton_Click" Name="Button_Aux2" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="360,40,0,0" Width="60" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">Aux2</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.Aux3}" Click="Button_GamepadButton_Click" Name="Button_Aux3" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="360,80,0,0" Width="60" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">Aux3</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.Aux4}" Click="Button_GamepadButton_Click" Name="Button_Aux4" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="360,120,0,0" Width="60" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">Aux4</TextBlock>
+            </Button>
+            <Button Tag="{x:Static local:VirtualGamepadButton.Aux5}" Click="Button_GamepadButton_Click" Name="Button_Aux5" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="360,160,0,0" Width="60" Height="40" FontSize="12" Padding="0">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">Aux5</TextBlock>
+            </Button>
+
+            <RadioButton Name="Radio_NoShift" Margin="450,5,0,0" GroupName="Shift" Foreground="{StaticResource ControlForegroundColor}" Checked="Radio_NoShift_Checked">No Shift</RadioButton>
+            <RadioButton Name="Radio_InventoryShift" Margin="450,30,0,0" GroupName="Shift" Foreground="{StaticResource ControlForegroundColor}" Checked="Radio_InventoryShift_Checked">Inventory Shift</RadioButton>
+            <RadioButton Name="Radio_PauseShift" Margin="450,55,0,0" GroupName="Shift" Foreground="{StaticResource ControlForegroundColor}" Checked="Radio_PausShift_Checked">Pause Shift</RadioButton>
+        </Grid>
+        <Grid Grid.Column="2" Grid.Row="5" Grid.RowSpan="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition SharedSizeGroup="Labels" Width="Auto"/>
+                <ColumnDefinition SharedSizeGroup="TextBoxes" Width="Auto"/>
+                <ColumnDefinition SharedSizeGroup="Labels" Width="Auto"/>
+                <ColumnDefinition SharedSizeGroup="TextBoxes" />
+                <ColumnDefinition SharedSizeGroup="Labels" Width="Auto"/>
+                <ColumnDefinition SharedSizeGroup="TextBoxes" />
+                <ColumnDefinition SharedSizeGroup="Labels" Width="Auto"/>
+                <ColumnDefinition SharedSizeGroup="TextBoxes" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition SharedSizeGroup="KeySeps" Height="Auto"/>
+                <RowDefinition SharedSizeGroup="KeySeps" Height="32*" />
+                <RowDefinition SharedSizeGroup="KeySeps" Height="32*" />
+                <RowDefinition SharedSizeGroup="KeySeps" Height="32*" />
+                <RowDefinition SharedSizeGroup="KeySeps" Height="31.96" />
+                <RowDefinition SharedSizeGroup="KeySeps" Height="32*" />
+                <RowDefinition SharedSizeGroup="KeySeps" Height="32*" />
+                <RowDefinition SharedSizeGroup="KeySeps" Height="32*" />
+                <RowDefinition Height="119*" />
+            </Grid.RowDefinitions>
+
+            <Label Grid.Column="0" Grid.Row="0" Content="Up" HorizontalAlignment="Right"/>
+            <Label Grid.Column="0" Grid.Row="1" Content="Down" HorizontalAlignment="Right"/>
+            <Label Grid.Column="0" Grid.Row="2" Content="Left" HorizontalAlignment="Right"/>
+            <Label Grid.Column="0" Grid.Row="3" Content="Right" HorizontalAlignment="Right"/>
+            <Label Grid.Column="0" Grid.Row="4" Content="Action" HorizontalAlignment="Right"/>
+            <Label Grid.Column="0" Grid.Row="5" Content="Jump" HorizontalAlignment="Right"/>
+            <Label Grid.Column="0" Grid.Row="6" Content="Roll" HorizontalAlignment="Right"/>
+            <Label Grid.Column="0" Grid.Row="7" Content="Draw" HorizontalAlignment="Right"/>
+            <Label Grid.Column="2" Grid.Row="0" Content="Look" HorizontalAlignment="Right"/>
+            <Label Grid.Column="2" Grid.Row="1" Content="Walk" HorizontalAlignment="Right"/>
+            <Label Grid.Column="2" Grid.Row="2" Content="Duck" HorizontalAlignment="Right"/>
+            <Label Grid.Column="2" Grid.Row="3" Content="Dash" HorizontalAlignment="Right"/>
+            <Label Grid.Column="2" Grid.Row="4" Content="Inventory" HorizontalAlignment="Right"/>
+            <Label Grid.Column="2" Grid.Row="5" Content="Flare" HorizontalAlignment="Right"/>
+            <Label Grid.Column="2" Grid.Row="6" Content="Step Left" HorizontalAlignment="Right"/>
+            <Label Grid.Column="2" Grid.Row="7" Content="Step Right" HorizontalAlignment="Right" />
+            <Label Grid.Column="4" Grid.Row="7" Content="Quick Load" HorizontalAlignment="Left" />
+            <Label Grid.Column="4" Grid.Row="6" Content="Quick Save" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+            <Label Grid.Column="4" Grid.Row="5" Content="Pause" HorizontalAlignment="Right" VerticalAlignment="Top"/>
+            <Label Grid.Column="4" Grid.Row="0" Content="1" HorizontalAlignment="Right"/>
+            <Label Grid.Column="4" Grid.Row="1" Content="2" HorizontalAlignment="Right"/>
+            <Label Grid.Column="4" Grid.Row="2" Content="3" HorizontalAlignment="Right"/>
+            <Label Grid.Column="4" Grid.Row="3" Content="4" HorizontalAlignment="Right"/>
+            <Label Grid.Column="4" Grid.Row="4" Content="5" HorizontalAlignment="Right"/>
+            <Label Grid.Column="6" Grid.Row="0" Content="6" HorizontalAlignment="Right"/>
+            <Label Grid.Column="6" Grid.Row="1" Content="7" HorizontalAlignment="Right"/>
+            <Label Grid.Column="6" Grid.Row="2" Content="8" HorizontalAlignment="Right"/>
+            <Label Grid.Column="6" Grid.Row="3" Content="9" HorizontalAlignment="Right"/>
+            <Label Grid.Column="6" Grid.Row="4" Content="0" HorizontalAlignment="Right"/>
+
+
+            <TextBox Tag="Up" Name="TextBox_Keybd_Up" IsReadOnly="True" Grid.Column="1" Grid.Row="0" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Down" Name="TextBox_Keybd_Down" IsReadOnly="True" Grid.Column="1" Grid.Row="1" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Left" Name="TextBox_Keybd_Left" IsReadOnly="True" Grid.Column="1" Grid.Row="2" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Right" Name="TextBox_Keybd_Right" IsReadOnly="True" Grid.Column="1" Grid.Row="3" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Action" Name="TextBox_Keybd_Action" IsReadOnly="True" Grid.Column="1" Grid.Row="4" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Jump" Name="TextBox_Keybd_Jump" IsReadOnly="True" Grid.Column="1" Grid.Row="5" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Roll" Name="TextBox_Keybd_Roll" IsReadOnly="True" Grid.Column="1" Grid.Row="6" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Draw" Name="TextBox_Keybd_Draw" IsReadOnly="True" Grid.Column="1" Grid.Row="7" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Look" Name="TextBox_Keybd_Look" IsReadOnly="True" Grid.Column="3" Grid.Row="0" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Walk" Name="TextBox_Keybd_Walk" IsReadOnly="True" Grid.Column="3" Grid.Row="1" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Duck" Name="TextBox_Keybd_Duck" IsReadOnly="True" Grid.Column="3" Grid.Row="2" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Dash" Name="TextBox_Keybd_Dash" IsReadOnly="True" Grid.Column="3" Grid.Row="3" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Inventory" Name="TextBox_Keybd_Inventory" IsReadOnly="True" Grid.Column="3" Grid.Row="4" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Flare" Name="TextBox_Keybd_Flare" IsReadOnly="True" Grid.Column="3" Grid.Row="5" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="StepLeft" Name="TextBox_Keybd_StepLeft" IsReadOnly="True" Grid.Column="3" Grid.Row="6" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="StepRight" Name="TextBox_Keybd_StepRight" IsReadOnly="True" Grid.Column="3" Grid.Row="7" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Pause" Name="TextBox_Keybd_Pause" IsReadOnly="True" Grid.Column="5" Grid.Row="5" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="1" Name="TextBox_Keybd_1" IsReadOnly="True" Grid.Column="5" Grid.Row="0" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="2" Name="TextBox_Keybd_2" IsReadOnly="True" Grid.Column="5" Grid.Row="1" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="3" Name="TextBox_Keybd_3" IsReadOnly="True" Grid.Column="5" Grid.Row="2" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="4" Name="TextBox_Keybd_4" IsReadOnly="True" Grid.Column="5" Grid.Row="3" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="5" Name="TextBox_Keybd_5" IsReadOnly="True" Grid.Column="5" Grid.Row="4" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="6" Name="TextBox_Keybd_6" IsReadOnly="True" Grid.Column="7" Grid.Row="0" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="7" Name="TextBox_Keybd_7" IsReadOnly="True" Grid.Column="7" Grid.Row="1" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="8" Name="TextBox_Keybd_8" IsReadOnly="True" Grid.Column="7" Grid.Row="2" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="9" Name="TextBox_Keybd_9" IsReadOnly="True" Grid.Column="7" Grid.Row="3" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="0" Name="TextBox_Keybd_0" IsReadOnly="True" Grid.Column="7" Grid.Row="4" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="QuickLoad" Name="TextBox_Keybd_QuickLoad" IsReadOnly="True" Grid.Column="5" Grid.Row="6" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="QuickSave" Name="TextBox_Keybd_QuickSave" IsReadOnly="True" Grid.Column="5" Grid.Row="7" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+        </Grid>
+
+        <StackPanel Grid.Column="1" Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Click="Button_OK_Click" Width="50">OK</Button>
+            <Button Click="Button_Cancel_Click" Width="50">Cancel</Button>
+        </StackPanel>
+    </Grid>
+</Window>

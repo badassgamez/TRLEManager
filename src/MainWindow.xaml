@@ -1,0 +1,124 @@
+﻿<!--
+    Copyright © badassgamez Ltd.
+    Author:     badassgamez
+    Created:    11.13.2024
+    License:    MIT
+-->
+    
+<Window x:Class="TRLEManager.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:TRLEManager"
+        mc:Ignorable="d"
+        Title="TRLE Manager" Height="450" Width="800" Style="{StaticResource AppWindowStyle}" Closing="Window_Closing">
+    <Window.Resources>
+        <BitmapImage x:Key="RunImage" UriSource="pack://application:,,,/Images/Run.png" />
+        <BitmapImage x:Key="SetupImage" UriSource="pack://application:,,,/Images/Settings.png" />
+        <BitmapImage x:Key="WalkthroughImage" UriSource="pack://application:,,,/Images/Walkthrough.png" />
+        <BitmapImage x:Key="EditProfileImage" UriSource="pack://application:,,,/Images/EditProfile.png" />
+        <BitmapImage x:Key="DownloadImage" UriSource="pack://application:,,,/Images/Download.png" />
+        <BitmapImage x:Key="BrowseImage" UriSource="pack://application:,,,/Images/Browse.png" />
+        <BitmapImage x:Key="RemoveImage" UriSource="pack://application:,,,/Images/Remove.png" />
+    </Window.Resources>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="13*"/>
+            <ColumnDefinition Width="37*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="100"/>
+            <RowDefinition/>
+        </Grid.RowDefinitions>
+        <StackPanel Grid.Row="0" Orientation="Horizontal" Grid.ColumnSpan="2">
+            <Button Margin="18,0,0,0" Height="64" Width="64" Click="Button_AddTRLE_Click">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">Add TRLE</TextBlock>
+            </Button>
+            <Button Margin="18,0,0,0" Height="64" Width="64" Click="Button_BrowseTRLE_Click">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">Browse TRLEs</TextBlock>
+            </Button>
+            <Button Margin="18,0,0,0" Height="64" Width="64" Click="Button_ManagerSettings_Click">
+                <TextBlock TextWrapping="Wrap" TextAlignment="Center">Manager Settings</TextBlock>
+            </Button>
+        </StackPanel>
+        <ListBox x:Name="ListBox_InstalledTRLE" Grid.Row="1" d:DataContext="{d:DesignInstance Type=local:TRLE, IsDesignTimeCreatable=True}" Background="Transparent" BorderBrush="#00ABADB3" ScrollViewer.VerticalScrollBarVisibility="Auto" ScrollViewer.HorizontalScrollBarVisibility="Hidden" Grid.ColumnSpan="2">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <Grid ContextMenuOpening="ContextMenu_TRLEListFunctions">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Grid.ContextMenu>
+                            <ContextMenu>
+                                <MenuItem Tag="Play" Header="Play" Click="ListBoxMenu_Play_Click"/>
+                                <MenuItem Tag="Setup" Header="Setup" Click="ListBoxMenu_Setup_Click"/>
+                                <Separator Tag="Separator1"/>
+                                <MenuItem Tag="Profile" Header="Profile" Click="ListBoxMenu_Profile_Click"/>
+                                <MenuItem Tag="Download" Header="Download" Click="ListBoxMenu_Download_Click"/>
+                                <MenuItem Tag="BrowseFolder" Header="Browse Folder" Click="ListBoxMenu_BrowseFolder_Click"/>
+                                <Separator Tag="Separator2"/>
+                                <MenuItem Tag="VisitWebsite" Header="Visit Website" Click="ListBoxMenu_VisitWebsite_Click"/>
+                                <MenuItem Tag="ViewWalkthrough" Header="View Walkthrough" Click="ListBoxMenu_ViewWalkthrough_Click"/>
+                                <Separator Tag="Separator3"/>
+                                <MenuItem Tag="DeleteEntry" Header="Delete Entry..." Click="ListBoxMenu_DeleteEntry_Click"/>
+                            </ContextMenu>
+                        </Grid.ContextMenu>
+                        <!-- Icon on the left -->
+                        <Label Margin="0" Padding="0" Grid.Column="0" Width="64" Height="64">
+                            <Image Source="{Binding Icon}" Width="64" Height="64" Stretch="Uniform"/>
+                        </Label>
+
+                        <!-- Text block container -->
+                        <StackPanel Grid.Column="1" Orientation="Vertical">
+                            <!-- First line of text -->
+                            <TextBlock Text="{Binding Name}" Foreground="#E0E0E0" FontSize="17" FontWeight="Black" Margin="5,5,5,0"/>
+
+                            <!-- Second line of text -->
+                            <TextBlock Text="{Binding Author}" Foreground="#E0E0E0" FontSize="14" FontWeight="Black" Margin="5,0,5,0"/>
+
+                            <!-- Third line of text -->
+                            <TextBlock Text="{Binding DriveSpaceUsed}" Foreground="#E0E0E0" FontSize="12" FontWeight="Black" Margin="5,5,5,5"/>
+                        </StackPanel>
+
+                        <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" Loaded="ListBox_InstalledTRLEs_StackPanel_Loaded">
+                            <Button Name="Button_PlayTRLE" Width="50" Height="50" Click="Button_PlayTRLE_Click">
+                                <Image Source="{StaticResource ResourceKey=RunImage}" />
+                            </Button>
+                            <Button Name="Button_DownloadTRLE" Width="50" Height="50" Click="Button_DownloadTRLE_Click">
+                                <Image Source="{StaticResource ResourceKey=DownloadImage}" />
+                            </Button>
+                            <Button Name="Button_WalkthroughTRLE" Width="50" Height="50" Click="Button_WalkthroughTRLE_Click">
+                                <Image Source="{StaticResource ResourceKey=WalkthroughImage}" />
+                            </Button>
+                            <Button Name="Button_EditTRLE" Width="50" Height="50" Click="Button_EditTRLE_Click">
+                                <Image Source="{StaticResource ResourceKey=EditProfileImage}"/>
+                            </Button>
+                            <!-- <Button Name="Button_SetupTRLE" Width="50" Height="50" Click="Button_SetupTRLE_Click">
+                                <Image Source="{StaticResource ResourceKey=SetupImage}"/>
+                            </Button> -->
+                            <!-- Too much clutter
+                            <Button Name="Button_BrowseTRLEFolder" Width="50" Height="50" Click="Button_BrowseTRLEFolder_Click">
+                                <Image Source="{StaticResource ResourceKey=BrowseImage}"/>
+                            </Button>
+                            <Button Name="Button_RemoveTRLE" Width="50" Height="50" Click="Button_RemoveTRLE_Click">
+                                <Image Source="{StaticResource ResourceKey=RemoveImage}" />
+                            </Button> -->
+                        </StackPanel>
+                    </Grid>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+
+            <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                    <Setter Property="Padding" Value="0"/>
+                    <Setter Property="Margin" Value="0"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+                </Style>
+            </ListBox.ItemContainerStyle>
+            <local:TRLE Name="Hypersquare" Author="Psiko" DownloadURL="hasdf"/>
+        </ListBox>
+    </Grid>
+</Window>
