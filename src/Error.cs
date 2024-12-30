@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Collections;
 using System.Linq;
 using System.Security.Policy;
 using System.Text;
@@ -107,9 +108,11 @@ namespace TRLEManager
                     .Append($"\nBase error - {base.ToString()}")
                     .Append("\nAdditional Info - ");
 
-                foreach (KeyValuePair<object, object> kvp in Data)
+                foreach (DictionaryEntry kvp in Data)
+                {
+                    ///KeyValuePair<object, object> kvp = (KeyValuePair<object, object>)okvp;
                     builder.Append($"\n\"{kvp.Key.ToString()}\"=\"{kvp.Value.ToString()}\"");
-                
+                }
                 return builder.Append('\n').ToString();
             } catch(Exception e) when (e is ArgumentOutOfRangeException)
             {

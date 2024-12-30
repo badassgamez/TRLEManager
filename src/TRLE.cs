@@ -592,6 +592,10 @@ namespace TRLEManager
 
 		private static void ExtractZip(string zipPath, string extractPath)
 		{
+			// TODO: CUrrently errors out when the directory exists.
+			// Add temp folder, extract to that, then overwrite files in the
+			// destination folder.
+
             try
             {
                 ZipFile.ExtractToDirectory(zipPath, extractPath);
@@ -736,7 +740,7 @@ namespace TRLEManager
 
                 try
 				{
-                    string[] exeFiles = Directory.GetFiles(extractPath, "*.exe");
+                    string[] exeFiles = Directory.GetFiles(path, "*.exe");
 					if (exeFiles.Length != 0)
 						return exeFiles;
 

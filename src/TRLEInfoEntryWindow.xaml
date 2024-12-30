@@ -87,7 +87,7 @@
                 <ColumnDefinition/>
                 <ColumnDefinition Width="Auto"/>
             </Grid.ColumnDefinitions>
-            <TextBox TextChanged="TextBox_TRCustomsID_TextChanged" Grid.Column="0" Name="TextBox_TRCustomsID" VerticalAlignment="Center"></TextBox>
+            <TextBox TextChanged="TextBox_TRCustomsID_TextChanged" Grid.Column="0" Name="TextBox_TRCustomsID" VerticalAlignment="Center" KeyDown="TextBox_TRCustomsID_KeyDown"></TextBox>
             <Button IsEnabled="False" Name="Button_TRCustomsLookup" Click="Button_TRCustomsLookup_Click" Width="75" Grid.Column="1" Padding="5,0,5,0" Margin="5">Lookup</Button>
         </Grid>
         

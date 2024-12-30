@@ -1,11 +1,4 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
-using System.Configuration;
-using System.Data;
-/*
+﻿/*
 	Copyright © badassgamez Ltd.
 
 	Author:     badassgamez
@@ -13,13 +6,15 @@ using System.Data;
 
 	License:    MIT
 */
+
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Linq.Expressions;
 using System.Runtime.InteropServices;
 using System.Security;
-using System.Security.Policy;
 using System.Text;
 using System.Windows;
 using System.Windows.Input;

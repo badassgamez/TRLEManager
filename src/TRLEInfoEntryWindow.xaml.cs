@@ -27,9 +27,9 @@ namespace TRLEManager
 		{
 			InitializeComponent();
 
-			Label_TRCustomsID.Visibility = Visibility.Collapsed;
-			TextBox_TRCustomsID.Visibility = Visibility.Collapsed;
-			Button_TRCustomsLookup.Visibility = Visibility.Collapsed;
+			//Label_TRCustomsID.Visibility = Visibility.Collapsed;
+			//TextBox_TRCustomsID.Visibility = Visibility.Collapsed;
+			//Button_TRCustomsLookup.Visibility = Visibility.Collapsed;
 
 			Info = startinginfo;
 
@@ -98,6 +98,28 @@ namespace TRLEManager
             }
         }
 
+		private async void TRCustomsLookup()
+		{
+			string textID = TextBox_TRCustomsID.Text;
+
+			try
+			{
+				TRCustomsInfo info = await TRCustoms.GetTRCustomsInfo(textID);
+
+				TextBox_Name.Text = info.Title;
+				TextBox_Author.Text = info.Author;
+
+				TextBox_InfoWebpage.Text = info.WebpageURL;
+				TextBox_DownloadURL.Text = info.DownloadURL;
+				TextBox_WalkthroughURL.Text = info.WalkthroughURL;
+			}
+			catch (Error e)
+			{
+				e.LogError();
+				App.StandardErrorMessageBox($"The TRCustoms.org ID '{textID}' is not a valid TRLE, or an error occured\n\n{e.Message}");
+			}
+		}
+
 		private void Button_TRLENetLookup_Click(object sender, RoutedEventArgs e)
 		{
 			TRLENetLookup();
@@ -105,7 +127,7 @@ namespace TRLEManager
 
 		private void Button_TRCustomsLookup_Click(object sender, RoutedEventArgs e)
 		{
-
+			TRCustomsLookup();
 		}
 
 		private void Button_EXEBrowse_Click(object sender, RoutedEventArgs e)
@@ -230,6 +252,12 @@ namespace TRLEManager
 		private void TextBox_TRLENetID_KeyDown(object sender, KeyEventArgs e)
 		{
 			if (e.Key == Key.Enter) TRLENetLookup();
+		}
+
+		private void TextBox_TRCustomsID_KeyDown(object sender, KeyEventArgs e)
+		{
+			if (e.Key == Key.Enter) 
+				TRCustomsLookup();
 		}
 	}
 }

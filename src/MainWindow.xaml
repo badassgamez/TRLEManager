@@ -12,7 +12,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TRLEManager"
         mc:Ignorable="d"
-        Title="TRLE Manager" Height="450" Width="800" Style="{StaticResource AppWindowStyle}" Closing="Window_Closing">
+        Title="TRLE Manager v0.2.0" Height="450" Width="800" Style="{StaticResource AppWindowStyle}" Closing="Window_Closing">
     <Window.Resources>
         <BitmapImage x:Key="RunImage" UriSource="pack://application:,,,/Images/Run.png" />
         <BitmapImage x:Key="SetupImage" UriSource="pack://application:,,,/Images/Settings.png" />
