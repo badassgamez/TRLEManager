@@ -9,13 +9,17 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.IO.Compression;
+using System.IO.Pipes;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Runtime.InteropServices;
+using System.Security;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -23,6 +27,8 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+
+using Icon = System.Drawing.Icon;
 
 namespace TRLEManager
 {
@@ -39,67 +45,73 @@ namespace TRLEManager
 		public string EXEPath { get; set; }
 		public string CompressedPath { get; set; }
 
-		public DateTime LastPlayed { get; private set; }
-
-		private ImageSource _icon;
-		public ImageSource Icon
-		{
-			get
-			{
-				if (_icon != null)
-					return _icon;
-
-				var path = EXEPath;
-
-				if (string.IsNullOrEmpty(path) || !File.Exists(path))
-					return null;
-
-				_icon = GetFileIcon(path);
-				return _icon;
-			}
-			set
-			{
-				_icon = value;
-			}
-		}
-
-		public bool UseGamepad { get; set; }
-
 		public string DriveSpaceUsed
 		{
 			get
 			{
-				if (!string.IsNullOrEmpty(_drivespace))
-					return _drivespace;
-
-				return CalcDriveSpace();
+				return GetDriveSpaceUsed();
 			}
+
 			set
 			{
 				_drivespace = value;
 			}
 		}
 
-		public long FolderDriveSpace
+		public DateTime LastPlayed { get; private set; }
+
+        public bool UseGamepad { get; set; }
+
+		public bool RemoveWindowBorder { get; set; }
+
+        private ImageSource _icon;
+		public ImageSource Icon
 		{
 			get
 			{
-				if (_folderdrivespace != null)
-					return _folderdrivespace.Value;
-
-				return CalcDirSpace();
+				return GetIcon();
+			}
+			set
+			{
+				_icon = value;
 			}
 		}
-
-		public long ZipDriveSpace
+		public ImageSource GetIcon(bool fresh = false)
 		{
-			get
-			{
-				if (_zipdrivespace != null)
-					return _zipdrivespace.Value;
+			if (_icon != null && !fresh)
+				return _icon;
 
-				return CalcZipSpace();
-			}
+			var path = EXEPath;
+
+			if (string.IsNullOrEmpty(path) || !File.Exists(path))
+				return null;
+
+			_icon = GetFileIcon(path);
+			return _icon;
+		}
+
+		public string GetDriveSpaceUsed(bool fresh = false)
+		{
+			if (!string.IsNullOrEmpty(_drivespace) && !fresh)
+				return _drivespace;
+
+			return CalcDriveSpace();
+		}
+
+		public long GetFolderDriveSpace(bool fresh = false)
+		{
+			if (_folderdrivespace != null && !fresh)
+				return _folderdrivespace.Value;
+
+			return CalcDirSpace();
+		}
+
+		public long ZipDriveSpace(bool fresh = false)
+		{
+			if (_zipdrivespace != null && !fresh)
+				return _zipdrivespace.Value;
+
+			return CalcZipSpace();
 		}
 
 		private long? _folderdrivespace = null;
@@ -112,6 +124,7 @@ namespace TRLEManager
 
 			foreach (TRLE trleinfo in infos)
 			{
+				// Note - converting to Base64 ensures a | character doesn't interfere with deserialization
 				builder.Append(App.ToBase64(trleinfo.Serialize()));
 				builder.Append('|');
 			}
@@ -148,9 +161,10 @@ namespace TRLEManager
 			serialized.Append($"TRCustomsID={TRCustomsID}\n");
 			serialized.Append($"EXEPath={EXEPath}\n");
 			serialized.Append($"CompressedPath={CompressedPath}\n");
-			serialized.Append($"DriveSpaceUsed={DriveSpaceUsed}\n");
+			serialized.Append($"DriveSpaceUsed={_drivespace}\n");
 			serialized.Append($"UseGamepad={UseGamepad}\n");
 			serialized.Append($"LastPlayed={LastPlayed}\n");
+			serialized.Append($"RemoveWindowBorder={RemoveWindowBorder}");
 
 			return serialized.ToString();
 		}
@@ -165,10 +179,30 @@ namespace TRLEManager
 					return info;
 
 				int pos = line.IndexOf('=');
-				string key = line.Substring(0, pos);
-				string val = line.Substring(pos + 1);
+				if (pos == -1)
+				{
+					var err = new Error("Malformed serialized TRLE entry, '=' not found.");
+					err.Data.Add("line", line);
+					throw err;
+				}
 
-				switch (key)
+				string key;
+				string val;
+
+				try
+				{
+					key = line.Substring(0, pos);
+					val = line.Substring(pos + 1);
+				}
+				catch (ArgumentOutOfRangeException e)
+				{
+					var err = new Error("Failed to parse TRLE entry from settings.", e);
+					err.Data.Add("line", line);
+					err.Data.Add("pos", pos);
+					throw err;
+				}
+
+                switch (key)
 				{
 					case "Name": info.Name = val; break;
 					case "Author": info.Author = val; break;
@@ -179,9 +213,10 @@ namespace TRLEManager
 					case "TRCustomsID": info.TRCustomsID = val; break;
 					case "EXEPath": info.EXEPath = val; break;
 					case "CompressedPath": info.CompressedPath = val; break;
-					case "DriveSpaceUsed": info.DriveSpaceUsed = val; break;
+					case "DriveSpaceUsed": info._drivespace = string.IsNullOrEmpty(val) ? null : val; break;
 					case "UseGamepad": bool.TryParse(val, out bool ugp); info.UseGamepad = ugp; break;
 					case "LastPlayed": DateTime.TryParse(val, out DateTime dt); info.LastPlayed = dt; break;
+					case "RemoveWindowBorder": bool.TryParse(val, out bool rwb); info.RemoveWindowBorder = rwb; break;
 					default: break;
 				}
 				
@@ -192,23 +227,47 @@ namespace TRLEManager
 		public static long DoCalcDirSpace(DirectoryInfo dir)
 		{
 			long size = 0;
-			
-			{
-				FileInfo[] files = dir.GetFiles();
+
+			if (dir == null)
+				throw new Error("Directory info is null.");
+
+            // calc file sizes in this dir
+            {
+                FileInfo[] files = null;
+				try
+				{
+					files = dir.GetFiles();
+				}
+				catch (DirectoryNotFoundException e)
+				{
+					var err = new Error($"Failed to calculate directory size.", e);
+					e.Data.Add("dir", dir);
+					throw err;
+				}
 
 				foreach (FileInfo file in files)
-				{
 					size += file.Length;
-				}
 			}
 
+			//calc file sizes in sub dirs
 			{
-				DirectoryInfo[] dirs = dir.GetDirectories();
+				DirectoryInfo[] dirs = null;
+				try
+				{
+					dirs = dir.GetDirectories();
+				}
+				catch (Exception e) when (
+					e is DirectoryNotFoundException
+					|| e is SecurityException
+					|| e is UnauthorizedAccessException)
+				{
+					var err = new Error("Failed to calculate sub directory sizes.", e);
+					err.Data.Add("dir", dir?.FullName);
+					throw err;
+				}
 
 				foreach (DirectoryInfo di in dirs)
-				{
 					size += DoCalcDirSpace(di);
-				}
 			}
 
 			return size;
@@ -216,48 +275,83 @@ namespace TRLEManager
 
 		public long CalcZipSpace()
 		{
+			string zipPath = CompressedPath;
+
+			if (string.IsNullOrEmpty(zipPath))
+				return 0;
+
+			FileInfo fi;
 			try
 			{
-				FileInfo fi = new FileInfo(CompressedPath);
-				_zipdrivespace = fi.Length;
-				return _zipdrivespace.Value;
+				fi = new FileInfo(zipPath);
 			}
-			catch
+			catch (Exception e) when (
+				e is ArgumentNullException
+				|| e is SecurityException
+				|| e is ArgumentException
+				|| e is UnauthorizedAccessException
+				|| e is PathTooLongException
+				|| e is NotSupportedException)
 			{
-				return 0;
+				var err = new Error("Failed to calc zip size.", e);
+				err.Data.Add("zipPath", zipPath);
+				throw err;
 			}
+
+			_zipdrivespace = fi.Length;
+			return _zipdrivespace.Value;
 		}
 
 		public long CalcDirSpace()
 		{
-			try
-			{
-				DirectoryInfo trleDirInfo = Directory.GetParent(EXEPath);
-				_folderdrivespace = DoCalcDirSpace(trleDirInfo);
-				return _folderdrivespace.Value;
-			}
-			catch
-			{
+			string exePath = EXEPath;
+
+			if (string.IsNullOrEmpty(exePath))
 				return 0;
+
+			DirectoryInfo trleDirInfo;
+            try
+			{
+				 trleDirInfo = Directory.GetParent(EXEPath);
 			}
-		}
+			catch (Exception e) when (
+				e is IOException
+				|| e is UnauthorizedAccessException
+				|| e is ArgumentException
+				|| e is ArgumentNullException
+				|| e is PathTooLongException
+				|| e is DirectoryNotFoundException
+				|| e is NotSupportedException
+				|| e is SecurityException)
+			{
+				var err = new Error("Failed to determine parent directory of executable.", e);
+				e.Data.Add("exePath", exePath);
+				throw err;
+			}
+
+            _folderdrivespace = DoCalcDirSpace(trleDirInfo);
+            return _folderdrivespace.Value;
+        }
 
 		static readonly string[] SizeSuffixes = { "bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
 		static public string SizeSuffix(long value, int decimalPlaces = 0)
 		{
 			if (value < 0)
 			{
-				throw new ArgumentException("Bytes should not be negative", "value");
+				var err = new Error($"Invalid value.");
+				err.Data.Add("value", value);
+				throw err;
 			}
+
 			var mag = (int)Math.Max(0, Math.Log(value, 1024));
 			var adjustedSize = Math.Round(value / Math.Pow(1024, mag), decimalPlaces);
-			return String.Format("{0} {1}", adjustedSize, SizeSuffixes[mag]);
+			return string.Format("{0} {1}", adjustedSize, SizeSuffixes[mag]);
 		}
 
 		public string CalcDriveSpace()
 		{
-			long dirSize = this.FolderDriveSpace;
-			long zipSize = this.ZipDriveSpace;
+			long dirSize = GetFolderDriveSpace();
+			long zipSize = ZipDriveSpace();
 
 			long totalSize = dirSize + zipSize;
 
@@ -267,234 +361,451 @@ namespace TRLEManager
 
 		public Process Play()
 		{
-			if (!File.Exists(EXEPath)) return null;
+			if (!File.Exists(EXEPath))
+			{
+				var err = new Error($"Executable doesn't exist.");
+				err.Data.Add("EXEPath", EXEPath);
+				throw err;
+			}
 
-			ProcessStartInfo psi = new ProcessStartInfo(EXEPath)
+			string exeDir;
+			try
+			{
+				exeDir = Path.GetDirectoryName(EXEPath);
+            } catch (Exception e) when (e is ArgumentException || e is PathTooLongException)
+			{
+				var err = new Error("Unable to start TRLE game due to an error.", e);
+				err.Data.Add("EXEPath", EXEPath);
+				throw err;
+			}
+
+			Process p = App.LaunchProcess(new ProcessStartInfo(EXEPath)
 			{
 				FileName = EXEPath,
-				WorkingDirectory = Path.GetDirectoryName(EXEPath),
+				WorkingDirectory = exeDir,
 				UseShellExecute = false,
-			};
-
-			Process p = Process.Start(psi);
+			});
 
 			LastPlayed = DateTime.Now;
 
 			return p;
 		}
 
-		public bool Setup()
+		public void Setup()
 		{
-			if (!File.Exists(EXEPath)) return false;
+			string workingDir;
+			try
+			{
+				workingDir = Path.GetDirectoryName(EXEPath);
+			}
+			catch (Exception e) when (
+				e is ArgumentException
+				|| e is PathTooLongException)
+			{
+				var err = new Error($"Failed to get working directory.\n\n{e.Message}", e);
+				err.Data.Add("EXEPath", EXEPath);
+				throw err;
+			}
 
-			ProcessStartInfo psi = new ProcessStartInfo()
+            App.LaunchProcess(new ProcessStartInfo()
 			{
 				FileName = EXEPath,
 				Arguments = "-setup",
-				WorkingDirectory = Path.GetDirectoryName(EXEPath),
-			};
-
-			Process.Start(psi);
-			return true;
+				WorkingDirectory = workingDir,
+			});
 		}
 
 		public void BrowseFolder()
 		{
-			if (!Path.IsPathRooted(EXEPath))
-				return;
-			
-			string directory = Path.GetDirectoryName(EXEPath);
-
-			if (!Directory.Exists(directory))
-				return;
-
-			Process.Start(directory);
-		}
-
-		public static Task<string> Download(string downloadURL)
-		{
-			if (!Uri.TryCreate(downloadURL, UriKind.Absolute, out Uri downloadUri)
-				|| (downloadUri.Scheme != Uri.UriSchemeHttp && downloadUri.Scheme != Uri.UriSchemeHttps))
+			try
 			{
-				MessageBox.Show($"The download location '{downloadURL}' is not valid.", "Bad Download URL", MessageBoxButton.OK, MessageBoxImage.Error);
-				return null;
+				if (!Path.IsPathRooted(EXEPath))
+				{
+					var err = new Error($"Path needs to be absolute.");
+					err.Data.Add("EXEPath", EXEPath);
+					throw err;
+				}
+			}
+			catch (ArgumentException e)
+			{
+				var err = new Error($"Error inspecting executable path.\n\n{e.Message}", e);
+				err.Data.Add("EXEPath", EXEPath);
+				throw err;
 			}
 
-			string tempFileName = Path.Combine(App.GetDownloadPath(), Path.GetFileName(Path.GetTempFileName()));
-			tempFileName = Path.ChangeExtension(tempFileName, "zip");
-
-			ProgressBarWindow progress = new ProgressBarWindow()
+			string directory;
+			try
 			{
-				Owner = App.Window,
-			};
-			
-			progress.Show();
-
-			var tcs = new TaskCompletionSource<string>();
-
-			WebClient webClient = new WebClient();
-			webClient.DownloadProgressChanged += (sender, e) =>
+				directory = Path.GetDirectoryName(EXEPath);
+			}
+			catch (Exception e) when (
+				e is ArgumentException
+				|| e is PathTooLongException)
 			{
-				Application.Current.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Render, (Action)(() =>
-				{
-					progress.ProgressBar_Main.Value = e.ProgressPercentage;
-				}));
-			};
-			
-			webClient.DownloadFileCompleted += (sender, e) => 
-			{
-				Application.Current.Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Render, (Action)(() =>
-				{
-					progress.Close();
-					tcs.SetResult(tempFileName);
-				}));
-			};
+				var err = new Error($"Failed to get directory of executable.\n\n{e.Message}", e);
+				err.Data.Add("EXEPath", EXEPath);
+				throw err;
+			}
 
-			webClient.DownloadFileAsync(new Uri(downloadURL), tempFileName);
-
-			return tcs.Task;
+			App.LaunchProcessString(directory);
 		}
 
-		public async Task<bool?> Install()
+		public static async Task<string> Download(string downloadURL)
+		{
+			Uri downloadUri = App.ConvertToUri(downloadURL);
+
+			string tempFileName;
+			try
+			{
+				tempFileName = Path.Combine(App.GetDownloadDirectory().FullName, Path.GetFileName(Path.GetTempFileName()));
+				tempFileName = Path.ChangeExtension(tempFileName, "zip");
+			}
+			catch (Exception e) when (
+				e is ArgumentException
+				|| e is ArgumentNullException
+				|| e is IOException)
+			{
+				throw new Error($"Failed to create a temporary download file\n\n{e.Message}", e);
+			}
+
+			using (var httpClient = new HttpClient())
+			{
+				using (HttpResponseMessage response = await httpClient.GetAsync(downloadURL, HttpCompletionOption.ResponseHeadersRead))
+				{
+					try
+					{
+						response.EnsureSuccessStatusCode();
+					}
+					catch (HttpRequestException e)
+					{
+						var err = new Error($"Failed to download TRLE.\n\n{e.Message}", e);
+						e.Data.Add("downloadURL", downloadURL);
+						e.Data.Add("tempFileName", tempFileName);
+						throw err;
+					}
+
+					long totalSize = response.Content.Headers.ContentLength ?? -1L;
+
+					using (FileStream fs = App.OpenFile(tempFileName, FileMode.Create, FileAccess.Write, FileShare.None))
+					{
+						using (Stream contentStream = await response.Content.ReadAsStreamAsync())
+						{
+							byte[] buffer = new byte[8192];
+							long totalBytesRead = 0;
+							int bytesRead;
+
+							ProgressBarWindow progress = new ProgressBarWindow(totalSize <= 0)
+							{
+								Owner = App.Window,
+							};
+
+							progress.Show();
+
+							async Task<int> DoRead()
+							{
+								try
+								{
+									return await contentStream.ReadAsync(buffer, 0, buffer.Length);
+								}
+								catch (Exception e) when (
+									e is ArgumentNullException
+									|| e is ArgumentOutOfRangeException
+									|| e is ArgumentException
+									|| e is NotSupportedException
+									|| e is ObjectDisposedException
+									|| e is InvalidOperationException)
+								{
+									var err = new Error($"The download failed.\n\n{e.Message}", e);
+									err.Data.Add("downloadURL", downloadURL);
+									err.Data.Add("tempFileName", tempFileName);
+									err.Data.Add("totalSize", totalSize);
+									err.Data.Add("totalBytesRead", totalBytesRead);
+									throw err;
+								}
+							}
+
+							async Task DoWrite()
+							{
+								try
+								{
+									await fs.WriteAsync(buffer, 0, bytesRead);
+								}
+								catch (Exception e) when (
+									e is ArgumentNullException
+									|| e is ArgumentOutOfRangeException
+									|| e is NotSupportedException
+									|| e is ObjectDisposedException
+									|| e is InvalidOperationException)
+								{
+									var err = new Error($"There was an error writing to the download file.\n\n{e.Message}", e);
+									err.Data.Add("downloadURL", downloadURL);
+									err.Data.Add("tempFileName", tempFileName);
+									err.Data.Add("totalSize", totalSize);
+									err.Data.Add("totalBytesRead", totalBytesRead);
+									throw err;
+								}
+							}
+
+							try
+							{
+								while ((bytesRead = await DoRead()) > 0)
+								{
+									await DoWrite();
+
+									totalBytesRead += bytesRead;
+
+									if (totalSize > 0)
+										progress.ProgressBar_Main.Value = (int)((totalBytesRead * 100) / totalSize); // Update progress bar
+									
+								}
+							}
+							finally
+							{
+								progress.Close();
+							}
+						}
+					}
+				}
+			}
+
+			return tempFileName;
+		}
+
+		private string GetExtractPath()
+		{
+			string installPathBase = App.GetInstallPathBase().FullName;
+            try
+            {
+                return Path.Combine(installPathBase, Regex.Replace(Name, "[*/\\<>:|?]", ""));
+            }
+            catch (Exception e) when (
+                e is ArgumentException
+                || e is ArgumentNullException
+                || e is RegexMatchTimeoutException)
+            {
+                var err = new Error($"Failed to create extract path.\n\n{e.Message}", e);
+                err.Data.Add("installPathBase", installPathBase);
+                err.Data.Add("TRLE Name", Name);
+                throw err;
+            }
+        }
+
+		private static void ExtractZip(string zipPath, string extractPath)
+		{
+            try
+            {
+                ZipFile.ExtractToDirectory(zipPath, extractPath);
+            }
+            catch (Exception e) when (
+                e is ArgumentException
+                || e is ArgumentNullException
+                || e is RegexMatchTimeoutException
+                || e is PathTooLongException
+                || e is DirectoryNotFoundException
+                || e is IOException
+                || e is UnauthorizedAccessException
+                || e is NotSupportedException
+                || e is FileNotFoundException
+                || e is InvalidDataException)
+            {
+                var err = new Error($"Unable to extract zip.\n\n{e.Message}", e);
+                err.Data.Add("zipPath", zipPath);
+                err.Data.Add("extractPath", extractPath);
+                throw err;
+            }
+        }
+
+		public async Task<bool> Install()
 		{
 			// Returns:
-			//	null if not installed
 			//  true if the trle was downloaded
 			//  false if the trle was not downloaded (installed from zip)
 			string zipPath = CompressedPath;
 			bool downloaded = false;
+			
 			if (!File.Exists(zipPath))
 			{
 				zipPath = await Download(DownloadURL);
-				if (zipPath == null)
-					return null;
-
 				downloaded = true;
 			}
+						
+            string extractPath = GetExtractPath();
 
-			string extractPath = Path.Combine(App.GetInstallPathBase(), Regex.Replace(Name, "[*/\\<>:|?]", ""));
+			ExtractZip(zipPath, extractPath);
+
 			try
 			{
-				ZipFile.ExtractToDirectory(zipPath, extractPath);
-			}
-			catch { }
+				if (downloaded)
+				{
+					App.DeleteFile(zipPath);
+					CompressedPath = null;
+				}
+            }
+            catch (Error e)
+            {
+                e.LogError();
+                App.StandardExclamationMessageBox($"The TRLE was downloaded and extracted, however the temporary download file was unable to be removed.\n\n{e.Message}");
+            }
 
-			if (downloaded)
+			try
 			{
-				CompressedPath = null;
-				File.Delete(zipPath);
+				EXEPath = FindEXE();
+			}
+			catch (Error e)
+			{
+				e.LogError();
+				App.StandardExclamationMessageBox($"Failed to locate an executable in the extracted directory. You will need to locate it manually.\n\n{e.Message}");
 			}
 
-			string exePath = FindEXE();
-			if (exePath == null)
-				return null;
-
-			EXEPath = exePath;
-
+			CalcDriveSpace();
 			return downloaded;
 		}
 
-		public bool DeleteZIP()
+		public void DeleteZIP()
 		{
+			if (string.IsNullOrEmpty(CompressedPath))
+				return;
+
+			if (!File.Exists(CompressedPath))
+			{
+				CompressedPath = "";
+				return;
+			}
+
 			try
 			{
-				if (!File.Exists(CompressedPath)) 
-					return false;
-
 				File.Delete(CompressedPath);
-				CompressedPath = null;
-				return true;
 			}
-			catch
+			catch (Exception e) when (
+				e is ArgumentException
+				|| e is ArgumentNullException
+				|| e is DirectoryNotFoundException
+				|| e is IOException
+				|| e is NotSupportedException
+				|| e is PathTooLongException
+				|| e is UnauthorizedAccessException)
 			{
-				return false;
+				var err = new Error($"Failed to delete zip file.\n\n{e.Message}", e);
+				err.Data.Add("CompressedPath", CompressedPath);
+				throw err;
+			}
+			finally
+			{
+				CompressedPath = null;
 			}
 		}
 
-		public bool DeleteFolder()
+
+		public void DeleteFolder()
 		{
+
 			try
 			{
-				string dir = Path.GetDirectoryName(EXEPath);
-				if (!Directory.Exists(dir)) return false;
-				Directory.Delete(dir, true);
-				EXEPath = null;
-				return true;
+				string dirName = Path.GetDirectoryName(EXEPath);
+				if (string.IsNullOrEmpty(dirName) || !Directory.Exists(dirName))
+					return;
+				
+                Directory.Delete(dirName, true);
 			}
-			catch
+			catch (Exception e) when (
+				e is ArgumentException
+				|| e is PathTooLongException
+				|| e is ArgumentNullException
+				|| e is IOException
+				|| e is UnauthorizedAccessException
+				|| e is DirectoryNotFoundException)
 			{
-				return false;
+				var err = new Error($"Failed to delete TRLE folder.\n\n{e.Message}", e);
+				err.Data.Add("EXEPath", EXEPath);
+				err.Data.Add("Exists", File.Exists(EXEPath));
+				throw err;
 			}
+			finally
+			{
+                EXEPath = null;
+            }
 		}
 
 		public string FindEXE()
 		{
-			string extractPath = Path.Combine(App.GetInstallPathBase(), Regex.Replace(Name, "[*/\\<>:|?]", ""));
-			if (!Directory.Exists(extractPath))
-				return null;
+			string extractPath = GetExtractPath();
 			
-			string[] exeFiles;
-
 			string[] Traverse(string path)
 			{
-				try
+                string[] dirs;
+
+                try
 				{
-					exeFiles = Directory.GetFiles(extractPath, "*.exe");
+                    string[] exeFiles = Directory.GetFiles(extractPath, "*.exe");
 					if (exeFiles.Length != 0)
 						return exeFiles;
-					
-					foreach (string subdir in Directory.GetDirectories(path))
-					{
-						string[] result = Traverse(subdir);
-						if (result != null) 
-							return result;
-					}
+
+					dirs = Directory.GetDirectories(path);
 				}
-				catch
-				{ }
-				return null;
+				catch (Exception e) when (
+					e is ArgumentException
+					|| e is ArgumentNullException
+					|| e is PathTooLongException
+					|| e is DirectoryNotFoundException
+					|| e is IOException
+					|| e is UnauthorizedAccessException)
+				{
+					var err = new Error($"Couldn't retrive files or directories.\n\n{e.Message}", e);
+					err.Data.Add("path", path);
+					err.Data.Add("extractPath", extractPath);
+					throw err;
+				}
+
+                foreach (string subdir in dirs)
+                {
+                    string[] result = Traverse(subdir);
+                    if (result != null)
+                        return result;
+                }
+				{
+					var err = new Error($"Unable to find exe file.");
+					err.Data.Add("extractPath", extractPath);
+					throw err;
+				}
 			}
 
-			exeFiles = Traverse(extractPath);
-			if (exeFiles == null || exeFiles.Length == 0)
-				return null;
-
-			if (exeFiles.Length == 1)
-				return exeFiles[0];
+			string[] exeCandidates = Traverse(extractPath); 
 			
-			List<string> fileNames = exeFiles.Select((fullPath) => Path.GetFileName(fullPath)).ToList();
+			if (exeCandidates.Length == 1) return exeCandidates[0];
+			
+			List<string> fileNames = exeCandidates.Select((fullPath) => Path.GetFileName(fullPath)).ToList();
 			ListSelection selector = new ListSelection(fileNames);
 
 			if (selector.ShowDialog() != true)
 				return null;
 
-			return exeFiles[selector.SelectionIndex];
+			return exeCandidates[selector.SelectionIndex];
 		}
 
 		public void ViewWebsite()
 		{
-			if (Uri.TryCreate(InfoWebpageURL, UriKind.Absolute, out Uri walkthroughUri)
-					&& (walkthroughUri.Scheme == Uri.UriSchemeHttp || walkthroughUri.Scheme == Uri.UriSchemeHttps))
+			try
 			{
-				Process.Start(new ProcessStartInfo
-				{
-					FileName = InfoWebpageURL,
-					UseShellExecute = true,
-				});
+				App.ShellWebsite(InfoWebpageURL);
+			}
+			catch (Error err)
+			{
+				err.LogError();
+				App.StandardErrorMessageBox(err.Message);
 			}
 		}
 
 		public void ViewWalkthrough()
 		{
-			if (Uri.TryCreate(WalkthroughURL, UriKind.Absolute, out Uri walkthroughUri)
-					&& (walkthroughUri.Scheme == Uri.UriSchemeHttp || walkthroughUri.Scheme == Uri.UriSchemeHttps))
+			try
 			{
-				Process.Start(new ProcessStartInfo
-				{
-					FileName = WalkthroughURL,
-					UseShellExecute = true,
-				});
+				App.ShellWebsite(WalkthroughURL);
 			}
+            catch (Error err)
+            {
+                err.LogError();
+                App.StandardErrorMessageBox(err.Message);
+            }
 		}
 
 		private const uint SHGFI_ICON = 0x100;
@@ -526,19 +837,23 @@ namespace TRLEManager
 
 			uint flags = SHGFI_ICON | (largeIcon ? SHGFI_LARGEICON : SHGFI_SMALLICON);
 			IntPtr iconHandle = SHGetFileInfo(filePath, 0, ref shinfo, (uint)Marshal.SizeOf(shinfo), flags);
-
-			if (iconHandle != IntPtr.Zero)
+			if (iconHandle == IntPtr.Zero)
 			{
-				using (Icon icon = System.Drawing.Icon.FromHandle(shinfo.hIcon))
-				{
-					BitmapSource iconSource = Imaging.CreateBitmapSourceFromHIcon(
-						icon.Handle,
-						Int32Rect.Empty,
-						BitmapSizeOptions.FromEmptyOptions());
-					return iconSource;
-				}
+				var err = new Error($"Failed to get file info attempting to get icon.", new Win32Exception(Marshal.GetLastWin32Error()));
+				err.Data.Add("filePath", filePath);
+				err.Data.Add("File.Exists", File.Exists(filePath));
+				err.Data.Add("SHGetFileInfo Flags", flags);
+				throw err;
 			}
-			return null;
+
+			using (Icon icon = System.Drawing.Icon.FromHandle(shinfo.hIcon))
+			{
+				BitmapSource iconSource = Imaging.CreateBitmapSourceFromHIcon(
+					icon.Handle,
+					Int32Rect.Empty,
+					BitmapSizeOptions.FromEmptyOptions());
+				return iconSource;
+			}
 		}
 	}
 }

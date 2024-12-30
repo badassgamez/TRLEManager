@@ -235,29 +235,37 @@ namespace TRLEManager
 		{
 			TRLE trle = GetDataContext<TRLE>(sender);
 
-			App.RunTRLE(trle);
+			try
+			{
+				App.RunTRLE(trle);
+			}
+			catch (Error err)
+			{
+				err.LogError();
+                App.StandardErrorMessageBox($"There was an error trying to run the game and startup was aborted.\n\n'{err.Message}'");
+            }
 		}
 
-		private void Button_DownloadTRLE_Click(object sender, RoutedEventArgs e)
+		private async void Button_DownloadTRLE_Click(object sender, RoutedEventArgs e)
 		{
 			TRLE info = GetDataContext<TRLE>(sender);
 
-			var resultTask = info.Install();
-			resultTask.ContinueWith(result =>
+			try
 			{
-				if (result.Result.HasValue == false)
-					return;
+				await info.Install();
+			}
+			catch (Error err)
+			{
+				err.LogError();
+				App.StandardErrorMessageBox($"Failed to download TRLE.\n\n{err.Message}");
+			}
 
-				int infoIndex = TRLECollection.IndexOf(info);
-				if (infoIndex == -1)
-					return;
+            int infoIndex = TRLECollection.IndexOf(info);
+			if (infoIndex == -1)
+				TRLECollection.Add(info);
 
-				TRLECollection.ReplaceTRLEInfo(infoIndex, info);
-			});
-
-
-			resultTask.Start();
-		}
+            TRLECollection.ReplaceTRLEInfo(infoIndex, info);
+        }
 
 		private void Button_EditTRLE_Click(object sender, RoutedEventArgs e)
 		{

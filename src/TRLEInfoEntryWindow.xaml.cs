@@ -9,6 +9,8 @@
 
 using System;
 using System.IO;
+using System.Security.Policy;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -42,6 +44,8 @@ namespace TRLEManager
 				TextBox_TRCustomsID.Text = startinginfo.TRCustomsID;
 				TextBox_InfoEXEPath.Text = startinginfo.EXEPath;
 				TextBox_InfoZIPPath.Text = startinginfo.CompressedPath;
+				CheckBox_EnableGamepad.IsChecked = startinginfo.UseGamepad;
+				CheckBox_RemoveWindowBorder.IsChecked = startinginfo.RemoveWindowBorder;
 			}
 		}
 
@@ -56,6 +60,8 @@ namespace TRLEManager
 			Info.TRCustomsID = TextBox_TRCustomsID.Text;
 			Info.EXEPath = TextBox_InfoEXEPath.Text;
 			Info.CompressedPath = TextBox_InfoZIPPath.Text;
+			Info.UseGamepad = CheckBox_EnableGamepad.IsChecked.Value;
+			Info.RemoveWindowBorder = CheckBox_RemoveWindowBorder.IsChecked.Value;
 		}
 
 		private void Button_OK_Click(object sender, RoutedEventArgs e)
@@ -71,31 +77,26 @@ namespace TRLEManager
 			Close();
 		}
 
-		private void TRLENetLookup()
+		private async void TRLENetLookup()
 		{
-			uint id;
-
 			string textID = TextBox_TRLENetID.Text;
-			if (!uint.TryParse(textID, out id))
-			{
-				MessageBox.Show($"Invalid TRLE ID '{textID}'", "TRLE.net ID lookup Error", MessageBoxButton.OK, MessageBoxImage.Exclamation);
-				return;
+
+            try {
+                TrleNetInfo info = await TrleNet.GetTrleNetInfo(textID);
+				
+				TextBox_Name.Text = info.Title;
+				TextBox_Author.Text = info.Author;
+
+				TextBox_InfoWebpage.Text = info.WebpageURL;
+				TextBox_DownloadURL.Text = info.DownloadURL;
+				TextBox_WalkthroughURL.Text = info.WalkthroughURL;
 			}
-
-			TrleNetInfo info = TrleNet.GetTrleNetInfo(id);
-			if (info == null)
+			catch (Error e)
 			{
-				MessageBox.Show($"The TRLE.net ID '{textID}' is not a valid TRLE, or an error occured");
-				return;
-			}
-
-			TextBox_Name.Text = info.name;
-			TextBox_Author.Text = info.author;
-
-			TextBox_InfoWebpage.Text = info.infoWebpageUrl;
-			TextBox_DownloadURL.Text = info.downloadUrl;
-			TextBox_WalkthroughURL.Text = info.walkthroughUrl;
-		}
+                e.LogError();
+                App.StandardErrorMessageBox($"The TRLE.net ID '{textID}' is not a valid TRLE, or an error occured\n\n{e.Message}");
+            }
+        }
 
 		private void Button_TRLENetLookup_Click(object sender, RoutedEventArgs e)
 		{
@@ -109,7 +110,7 @@ namespace TRLEManager
 
 		private void Button_EXEBrowse_Click(object sender, RoutedEventArgs e)
 		{
-			OpenFileDialog ofd = new OpenFileDialog()
+			var ofd = new OpenFileDialog()
 			{
 				Title = "Select TRLE Executable...",
 				CheckFileExists = true,
@@ -119,17 +120,20 @@ namespace TRLEManager
 			string knownEXEPath = TextBox_InfoEXEPath.Text;
 			if (!string.IsNullOrEmpty(knownEXEPath))
 			{
-				string parentDir = System.IO.Path.GetDirectoryName(knownEXEPath);
-				if (!string.IsNullOrEmpty (parentDir))
-					ofd.InitialDirectory = parentDir;
+				try
+				{
+					string parentDir = Path.GetDirectoryName(knownEXEPath);
+					if (!string.IsNullOrEmpty(parentDir))
+						ofd.InitialDirectory = parentDir;
+				}
+				catch (ArgumentException) { }
+				catch (PathTooLongException) { }
 			}
 
 			if (ofd.ShowDialog() != true)
 				return;
 
-			string selectedFile = ofd.FileName;
-
-			TextBox_InfoEXEPath.Text = selectedFile;
+			TextBox_InfoEXEPath.Text = ofd.FileName;
 		}
 
 		private void TestForInstallButtonEnabled()
@@ -159,32 +163,51 @@ namespace TRLEManager
 
 		private void Button_ViewWalkthrough_Click(object sender, RoutedEventArgs e)
 		{
-			App.ShellWebsite(TextBox_WalkthroughURL.Text);
+			string siteURL = TextBox_WalkthroughURL.Text;
+
+            try
+			{
+				App.ShellWebsite(siteURL);
+            }
+            catch (Error err)
+			{
+				err.LogError();
+                App.StandardErrorMessageBox($"Failed to show the walkthrough website. '{siteURL}'\n\n{err.Message}");
+            }
 		}
 
-		private void Button_Install_Click(object sender, RoutedEventArgs e)
+		private async void Button_Install_Click(object sender, RoutedEventArgs e)
 		{
 			Compile();
 
-			var resultTask = Info.Install();
-			resultTask.ContinueWith(result =>
+			try
 			{
-				Application.Current.Dispatcher.Invoke(() =>
+				switch (await Info.Install())
 				{
-					if (result.Result == null)
-						return;
+					case true: TextBox_InfoZIPPath.Text = ""; break;
+					case false: TextBox_InfoZIPPath.Text = Info.CompressedPath; break;
+				}
 
-					if (result.Result == true)
-						TextBox_InfoZIPPath.Text = "";
-
-					TextBox_InfoEXEPath.Text = Info.EXEPath;
-				});
-			});
+                TextBox_InfoEXEPath.Text = Info.EXEPath;
+            }
+			catch (Error err)
+			{
+				err.LogError();
+				App.StandardErrorMessageBox($"Failed to install.\n\n{err.Message}");
+			}
 		}
 
 		private void Button_ViewInfoWebpage_Click(object sender, RoutedEventArgs e)
 		{
-			App.ShellWebsite(TextBox_InfoWebpage.Text);
+			try
+			{
+				App.ShellWebsite(TextBox_InfoWebpage.Text);
+			}
+			catch (Error err)
+			{
+				err.LogError();
+				App.StandardErrorMessageBox($"Failed to launch webpage.\n\n{err.Message}");
+			}
 		}
 
 		private void TextBox_InfoWebpage_TextChanged(object sender, TextChangedEventArgs e)
@@ -194,18 +217,19 @@ namespace TRLEManager
 
 		private void TextBox_TRLENetID_TextChanged(object sender, TextChangedEventArgs e)
 		{
-			Button_TRLENetLookup.IsEnabled = !string.IsNullOrEmpty(TextBox_TRLENetID.Text);
+			string testID = TextBox_TRLENetID.Text;
+            Button_TRLENetLookup.IsEnabled = !string.IsNullOrEmpty(testID) && uint.TryParse(testID, out uint _);
 		}
 
 		private void TextBox_TRCustomsID_TextChanged(object sender, TextChangedEventArgs e)
 		{
-			Button_TRCustomsLookup.IsEnabled = !string.IsNullOrEmpty(TextBox_TRCustomsID.Text);
+			string testID = TextBox_TRCustomsID.Text;
+            Button_TRCustomsLookup.IsEnabled = !string.IsNullOrEmpty(testID) && uint.TryParse(testID, out uint _);
 		}
 
 		private void TextBox_TRLENetID_KeyDown(object sender, KeyEventArgs e)
 		{
-			if (e.Key == Key.Enter)
-				TRLENetLookup();
+			if (e.Key == Key.Enter) TRLENetLookup();
 		}
 	}
 }

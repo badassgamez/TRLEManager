@@ -118,7 +118,7 @@
                     <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                 </Style>
             </ListBox.ItemContainerStyle>
-            <local:TRLE Name="Hypersquare" Author="Psiko" DownloadURL="hasdf"/>
+            <local:TRLE Name="Hypersquare" Author="Psiko" DownloadURL="hasdf" DriveSpaceUsed="12 GB"/>
         </ListBox>
     </Grid>
 </Window>

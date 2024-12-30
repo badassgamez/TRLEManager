@@ -13,9 +13,11 @@ namespace TRLEManager
 {
 	public partial class ProgressBarWindow : Window
 	{
-		public ProgressBarWindow()
+		public ProgressBarWindow(bool indetermined = false)
 		{
 			InitializeComponent();
+
+			ProgressBar_Main.IsIndeterminate = indetermined;
 		}
 	}
 }

@@ -43,10 +43,10 @@ namespace TRLEManager
 
 			long space = 0;
 			if (CheckBox_DeleteEXEFolder.IsChecked == true)
-				space = _info.FolderDriveSpace;
+				space = _info.GetFolderDriveSpace();
 
 			if (CheckBox_DeleteZIP.IsChecked == true)
-				space += _info.ZipDriveSpace;
+				space += _info.ZipDriveSpace();
 
 			string spaceStr = TRLE.SizeSuffix(space);
 			Label_SpaceReclaim.Content = spaceStr;
@@ -65,11 +65,27 @@ namespace TRLEManager
 			bool removeTRLEEntry = CheckBox_RemoveEntry.IsChecked.GetValueOrDefault();
 			// DeleteSaves = CheckBox_DeleteSaves.IsChecked.GetValueOrDefault();
 
-			if (deleteExeFolder)
-				_info.DeleteFolder();
+			try
+			{
+				if (deleteExeFolder)
+					_info.DeleteFolder();
+			}
+			catch (Error err)
+			{
+				err.LogError();
+				App.StandardExclamationMessageBox($"Failed to remove folder.\n\n{err.Message}");
+			}
 
-			if (deleteZipFile)
-				_info.DeleteZIP();
+			try
+			{
+				if (deleteZipFile)
+					_info.DeleteZIP();
+			}
+			catch (Error err)
+			{
+				err.LogError();
+				App.StandardExclamationMessageBox($"Failed to remove zip file.\n\n{err.Message}");
+			}
 
 			if (removeTRLEEntry)
 				TRLECollection.Remove(_info);

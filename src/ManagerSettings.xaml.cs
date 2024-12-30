@@ -34,6 +34,7 @@ namespace TRLEManager
 		public ManagerSettings()
 		{
 			InitializeComponent();
+
 			
 			_selectedGamepad = App.GetGamepadInfo();
 			_gamepadMap = App.GetGamepadMapping();
@@ -42,8 +43,8 @@ namespace TRLEManager
 
 			Radio_NoShift.IsChecked = true;
 
-			TextBox_TRLEInstallPath.Text = App.GetInstallPathBase();
-			TextBox_DownloadsPath.Text = App.GetDownloadPath();
+			TextBox_TRLEInstallPath.Text = App.GetInstallPathBase().FullName;
+			TextBox_DownloadsPath.Text = App.GetDownloadDirectory().FullName;
 			TextBox_BrowseTRLEURL.Text = App.GetBrowseTRLEURL();
 			TextBox_GamepadName.Text = _selectedGamepad?.ToString();
 
@@ -153,7 +154,7 @@ namespace TRLEManager
 			if (_gamepad == null)
 				return;
 
-			int auxCount = (int)_gamepad.ButtonCount - 12;
+			int auxCount = (int)_gamepad.GetButtonCount() - 12;
 
 			for (int i = 0; i < 5; i++)
 			{
@@ -332,7 +333,7 @@ namespace TRLEManager
 
 		private void Button_SelectGamepad_Click(object sender, RoutedEventArgs e)
 		{
-			var listSelectionWin = new ListSelection(new Gamepad.Devices().GetGamepads());
+			var listSelectionWin = new ListSelection(Gamepad.Devices.GetDevices().GetGamepads());
 			if (listSelectionWin.ShowDialog() != true)
 				return;
 

@@ -69,6 +69,7 @@
     <Compile Include="DeleteEntryDialog.xaml.cs">
       <DependentUpon>DeleteEntryDialog.xaml</DependentUpon>
     </Compile>
+    <Compile Include="Error.cs" />
     <Compile Include="FolderPickerDialog.cs" />
     <Compile Include="Gamepad.cs" />
     <Compile Include="GamepadButtonSetup.xaml.cs">

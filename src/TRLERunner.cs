@@ -33,18 +33,24 @@ namespace TRLEManager
 		}
 
 		public TRLERunner(TRLE trle) {
-			var gamepadInfo = App.GetGamepadInfo();
-			var baseGamepad = gamepadInfo?.ToGamepad();
+            _trle = trle;
+            _p = null;
 
-			if (baseGamepad != null)
-				_gamepad = new VirtualGamepad(baseGamepad);
-			_trle = trle;
-			_p = null;
+			if (!trle.UseGamepad)
+				return;
 
-			CompilePadToKeyMap();
+            try
+            {
+				var gamepadInfo = App.GetGamepadInfo();
+                var baseGamepad = gamepadInfo.ToGamepad();
+                if (baseGamepad != null)
+                    _gamepad = new VirtualGamepad(baseGamepad);
 
-			if (_gamepad != null)
-				_gamepad.OnVirtualChanged += _gamepad_OnVirtualChanged;
+                CompilePadToKeyMap();
+
+                _gamepad.OnVirtualChanged += _gamepad_OnVirtualChanged;
+            }
+            catch (Error) { }			
         }
 			
 		public void Start()
@@ -58,7 +64,19 @@ namespace TRLEManager
 			_p.EnableRaisingEvents = true;
 			_p.Exited += _p_Exited;
 
-			_gamepad?.StartMonitor();
+			if (_trle.UseGamepad)
+				_gamepad?.StartMonitor();
+
+			if (_trle.RemoveWindowBorder)
+			{
+                _p.WaitForInputIdle();
+				DisableWindowBorder();
+            }
+		}
+
+		public void DisableWindowBorder()
+		{
+
 		}
 
 		public void CompilePadToKeyMap()
@@ -78,16 +96,23 @@ namespace TRLEManager
 			}
 		}
 
-		private void _gamepad_OnVirtualChanged(object sender, VirtualGamepadChangedEventArgs e)
+		private void _gamepad_OnVirtualChanged(object sender, VirtualGamepadChangedEventArgs eventArgs)
 		{
-			if (!IsForeground())
-				return;
-
-			for (int i = 0; i < e.changeReportReleventLength; i++)
+			try
 			{
-				ref ButtonReport buttonReport = ref e.changeReport[i];
-				
-				SendKey(_vpadToKey[(int)buttonReport.button], buttonReport.down);
+				if (!IsForeground())
+					return;
+
+				for (int i = 0; i < eventArgs.changeReportReleventLength; i++)
+				{
+					ref ButtonReport buttonReport = ref eventArgs.changeReport[i];
+
+					SendKey(_vpadToKey[(int)buttonReport.button], buttonReport.down);
+				}
+			}
+			catch (Error e)
+			{
+				e.LogError();
 			}
 		}
 
@@ -163,11 +188,11 @@ namespace TRLEManager
 		bool IsForeground()
 		{
 			IntPtr hwnd = GetForegroundWindow();
-			if (0 == GetWindowThreadProcessId(hwnd, out int processId))
-			{
-				Debug.WriteLine($"An error occurred trying to receive the active window's process id. '{new Win32Exception().Message}'");
-			}
+			if (hwnd == IntPtr.Zero) return false;
 
+			if (0 == GetWindowThreadProcessId(hwnd, out int processId))
+				return false;
+			
 			return _p.Id == processId;
 		}
 
@@ -178,7 +203,6 @@ namespace TRLEManager
 		{
 			uint flags = KEYEVENTF_SCANCODE + KEYEVENTF_EXTENDEDKEY * Convert.ToUInt32(sc > 0xFF) + KEYEVENTF_KEYUP * Convert.ToUInt32(!keyDown);
 
-			//INPUT input;
 			_inputBuffer[0].type = INPUT_KEYBOARD;
 			_inputBuffer[0].u.ki.wVk = 0;
 			_inputBuffer[0].u.ki.wScan = sc;
@@ -188,27 +212,11 @@ namespace TRLEManager
 
 			if (1 != SendInput(1, _inputBuffer, _sizeOfInput))
 			{
-				var lastErr = Marshal.GetLastWin32Error();
-				Debug.WriteLine($"Failed to send up input {sc.ToString()} ({lastErr}) '{new Win32Exception(lastErr)}'");
-				return;
+				var err = new Error($"Failed to send input.", new Win32Exception(Marshal.GetLastWin32Error()));
+				err.Data.Add("sc", sc);
+				err.Data.Add("keyDown", keyDown);
+				throw err;
 			}
-			//}
-			//else
-			//{
-			//	_inputBuffer[0].type = INPUT_KEYBOARD;
-			//	_inputBuffer[0].u.ki.wVk = (ushort)tvk;
-			//	_inputBuffer[0].u.ki.wScan = (ushort)scan;
-			//	_inputBuffer[0].u.ki.dwFlags = (uint)flags;
-			//	_inputBuffer[0].u.ki.time = 0;
-			//	_inputBuffer[0].u.ki.dwExtraInfo = IntPtr.Zero;
-
-			//	if (1 != SendInput(1, _inputBuffer, _sizeOfInput))
-			//	{
-			//		var lastErr = Marshal.GetLastWin32Error();
-			//		Debug.WriteLine($"Failed to send up input {sc.ToString()} ({lastErr}) '{new Win32Exception(lastErr)}'");
-			//		return;
-			//	}
-			//}
 		}
 	}
 }

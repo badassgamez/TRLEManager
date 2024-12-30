@@ -19,6 +19,8 @@ using System.Runtime.ConstrainedExecution;
 using System.Security;
 using System.Threading;
 using System.Collections;
+using System.CodeDom;
+using static TRLEManager.Gamepad;
 
 namespace TRLEManager
 {
@@ -32,7 +34,7 @@ namespace TRLEManager
     public class Gamepad : IDisposable
 	{
 		private IntPtr _hDevice;
-		private IntPtr _hFile;
+		private IntPtr _hIO;
 		private IntPtr _preparsedData;
 		private HIDP_CAPS _caps;
 		private HIDP_BUTTON_CAPS[] _buttonCaps;
@@ -49,9 +51,8 @@ namespace TRLEManager
 
 		public event EventHandler<GamepadChangedEventArgs> OnGamepadChanged;
 
-		public Devices ConnectedDevice { get { return new Devices(); } }
-
 		public uint HatSwitchValue { get { return _hatSwitchValue; } }
+
 		public BitArray ButtonValues
 		{
 			get
@@ -69,125 +70,163 @@ namespace TRLEManager
 
 			_syncContext = SynchronizationContext.Current;
 
-			var bcap = ButtonCapabilities.First(cap => cap.UsagePage == USAGEPAGE_BUTTONS);
-			_buttonStates = new BitArray(bcap.Union.Range.UsageMax - bcap.Union.Range.UsageMin + 1);
+			try
+			{
+				var bcap = GetButtonCapabilities().First(cap => cap.UsagePage == USAGEPAGE_BUTTONS);
+				_buttonStates = new BitArray(bcap.Union.Range.UsageMax - bcap.Union.Range.UsageMin + 1);
+			}
+			catch (Exception e) when (
+				e is ArgumentNullException
+				|| e is InvalidOperationException
+				|| e is ArgumentOutOfRangeException)
+			{
+				throw new Error("Unable to start monitoring a gamepad.", e);
+			}
 
 			_monitoringThread.Start();
 		}
 
 		public void StopMonitor()
 		{
-			CancelIoEx(_hFile, IntPtr.Zero);
+			if (!CancelIoEx(_hIO, IntPtr.Zero))
+				new Error("Failed to cancel IO operation on gamepad monitoring thread.", new Win32Exception(Marshal.GetLastWin32Error())).LogError();
+
 			_threadRunningFlag = false;
 		}
 
 		private void MonitorThread()
 		{
-			IntPtr inputReport = Marshal.AllocHGlobal(Capabilities.InputReportByteLength);
-
-			var bcap = ButtonCapabilities.First(c => c.UsagePage == USAGEPAGE_BUTTONS);
-			var hcap = ValueCapabilities.First(c => c.UsagePage == USAGEPAGE_GENERIC_DESKTOP && c.Union.NotRange.Usage == USAGE_HATSWITCH);
-
-			ushort[] usages = new ushort[bcap.Union.Range.UsageMax - bcap.Union.Range.UsageMin + 1];
-			GamepadChangedEventArgs eventArgs = new GamepadChangedEventArgs();
-			eventArgs.buttonChanges = new ushort[usages.Length];
-
-			BitArray buttonBuffer = new BitArray(_buttonStates);
-
-			while (_threadRunningFlag)
+            try
 			{
-				if (!ReadFile(_hFile, inputReport, _caps.InputReportByteLength, out uint bytesRead, IntPtr.Zero))
+                IntPtr inputReport;
+                try
+                {
+                    inputReport = Marshal.AllocHGlobal(GetGamepadCapabilities().InputReportByteLength);
+                }
+                catch (OutOfMemoryException e)
+                {
+                    throw new Error("Out of memorty to begin monitoring gamepad.", e);
+                }
+
+				try
 				{
-					Debug.WriteLine($"An error occured trying to read from the device '{new Win32Exception().Message}'");
-					break;
-				}
+					var bcap = GetButtonCapabilities().First(c => c.UsagePage == USAGEPAGE_BUTTONS);
+					var hcap = GetValueCapabilities().First(c => c.UsagePage == USAGEPAGE_GENERIC_DESKTOP && c.Union.NotRange.Usage == USAGE_HATSWITCH);
 
-				uint ntresult = HidP_GetUsageValue(0, USAGEPAGE_GENERIC_DESKTOP, 0, USAGE_HATSWITCH, out uint povValue, _preparsedData, inputReport, _caps.InputReportByteLength);
-				if (ntresult != HIDP_STATUS_SUCCESS && ntresult != HIDP_STATUS_USAGE_NOT_FOUND)
-				{
-					Debug.WriteLine($"An error occured attempting to read from the POV Hat Switch '{HidResultToErrorString(ntresult)}'");
-					break;
-				}
+					ushort[] usages = new ushort[bcap.Union.Range.UsageMax - bcap.Union.Range.UsageMin + 1];
+					GamepadChangedEventArgs eventArgs = new GamepadChangedEventArgs();
+					eventArgs.buttonChanges = new ushort[usages.Length];
 
-				// adjust povValue
-				if (povValue < hcap.LogicalMin || povValue > hcap.LogicalMax)
-					povValue = 0; // idle
-				else
-				{
-					povValue = povValue - (uint)hcap.LogicalMin + 1; // normalize;
-					int adjustedPov = 0;
-					adjustedPov = 0x1 * Convert.ToUInt16(povValue == 8 || povValue == 1 || povValue == 2);
-					adjustedPov += 0x2 * Convert.ToUInt16(povValue == 2 || povValue == 3 || povValue == 4);
-					adjustedPov += 0x4 * Convert.ToUInt16(povValue == 4 || povValue == 5 || povValue == 6);
-					adjustedPov += 0x8 * Convert.ToUInt16(povValue == 6 || povValue == 7 || povValue == 8);
+					BitArray buttonBuffer = new BitArray(_buttonStates);
 
-					povValue = (uint)adjustedPov;
-				}
-
-				uint usageLen = (uint)usages.Length;
-
-				ntresult = HidP_GetUsages(0, USAGEPAGE_BUTTONS, 0, usages, ref usageLen, _preparsedData, inputReport, _caps.InputReportByteLength);
-				if (ntresult != HIDP_STATUS_SUCCESS && ntresult != HIDP_STATUS_BUFFER_TOO_SMALL)
-				{
-					Debug.WriteLine($"An error occured attempting to check number of buttons down '{HidResultToErrorString(ntresult)}'");
-					break;
-				}
-
-				bool raiseEvent = false;
-				eventArgs.buttonChangeCount = 0;
-
-				var buttonCount = usages.Length;
-
-				if (usageLen == 0)
-				{
-					for (ushort i = 0; i < buttonCount; i++)
+					while (_threadRunningFlag)
 					{
-						if (_buttonStates[i] != false)
+						if (!ReadFile(_hIO, inputReport, _caps.InputReportByteLength, out uint bytesRead, IntPtr.Zero))
+							throw new Error($"Failed to read from the device.", new Win32Exception(Marshal.GetLastWin32Error()));
+
+						uint ntresult = HidP_GetUsageValue(0, USAGEPAGE_GENERIC_DESKTOP, 0, USAGE_HATSWITCH, out uint povValue, _preparsedData, inputReport, _caps.InputReportByteLength);
+						if (ntresult != HIDP_STATUS_SUCCESS && ntresult != HIDP_STATUS_USAGE_NOT_FOUND)
+							throw new Error($"Failed read value from the POV Hat Switch. '{HidResultToErrorString(ntresult)}'");
+
+						// adjust povValue
+						if (povValue < hcap.LogicalMin || povValue > hcap.LogicalMax)
+							povValue = 0; // idle
+						else
 						{
-							eventArgs.buttonChanges[eventArgs.buttonChangeCount++] = i;
-							raiseEvent = true;
+							povValue = povValue - (uint)hcap.LogicalMin + 1; // normalize;
+							int adjustedPov = 0;
+							adjustedPov = 0x1 * Convert.ToUInt16(povValue == 8 || povValue == 1 || povValue == 2);
+							adjustedPov += 0x2 * Convert.ToUInt16(povValue == 2 || povValue == 3 || povValue == 4);
+							adjustedPov += 0x4 * Convert.ToUInt16(povValue == 4 || povValue == 5 || povValue == 6);
+							adjustedPov += 0x8 * Convert.ToUInt16(povValue == 6 || povValue == 7 || povValue == 8);
+
+							povValue = (uint)adjustedPov;
 						}
-					}
 
-					if (raiseEvent)
-						_buttonStates.SetAll(false);
-				}
-				else
-				{
-					buttonBuffer.SetAll(false);
+						uint usageLen = (uint)usages.Length;
 
-					for (ushort i = 0; i < usageLen; i++)
-					{	// Set used button flags to true
-						int buttonIndex = usages[i] - bcap.Union.Range.UsageMin;
-						buttonBuffer[buttonIndex] = true;
-					}
+						ntresult = HidP_GetUsages(0, USAGEPAGE_BUTTONS, 0, usages, ref usageLen, _preparsedData, inputReport, _caps.InputReportByteLength);
+						if (ntresult != HIDP_STATUS_SUCCESS)
+							throw new Error($"An error occured attempting to check number of buttons down '{HidResultToErrorString(ntresult)}'");
 
-					for (ushort i = 0; i < buttonCount; i++)
-					{	// test for difference in buttons (buffer contains the new state, states contains stale state)
-						if (buttonBuffer[i] != _buttonStates[i])
+						bool raiseEvent = false;
+						eventArgs.buttonChangeCount = 0;
+
+						var buttonCount = usages.Length;
+
+						if (usageLen == 0)
 						{
-                            eventArgs.buttonChanges[eventArgs.buttonChangeCount++] = i;
-							raiseEvent = true;
-                        }
-					}
+							for (ushort i = 0; i < buttonCount; i++)
+							{
+								if (_buttonStates[i] != false)
+								{
+									eventArgs.buttonChanges[eventArgs.buttonChangeCount++] = i;
+									raiseEvent = true;
+								}
+							}
 
-					if (raiseEvent)
-						(buttonBuffer, _buttonStates) = (_buttonStates, buttonBuffer);
+							if (raiseEvent)
+								_buttonStates.SetAll(false);
+						}
+						else
+						{
+							buttonBuffer.SetAll(false);
+
+							for (ushort i = 0; i < usageLen; i++)
+							{   // Set used button flags to true
+								int buttonIndex = usages[i] - bcap.Union.Range.UsageMin;
+								buttonBuffer[buttonIndex] = true;
+							}
+
+							for (ushort i = 0; i < buttonCount; i++)
+							{   // test for difference in buttons (buffer contains the new state, states contains stale state)
+								if (buttonBuffer[i] != _buttonStates[i])
+								{
+									eventArgs.buttonChanges[eventArgs.buttonChangeCount++] = i;
+									raiseEvent = true;
+								}
+							}
+
+							if (raiseEvent)
+								(buttonBuffer, _buttonStates) = (_buttonStates, buttonBuffer);
+						}
+
+						eventArgs.prevDpad = (ushort)_hatSwitchValue;
+						raiseEvent |= _hatSwitchValue != povValue;
+						_hatSwitchValue = povValue;
+
+						if (raiseEvent)
+						{
+							_syncContext.Send((_) =>
+							{
+								try
+								{
+									OnGamepadChanged?.Invoke(this, eventArgs);
+								}
+								catch (Exception e)
+								{
+									Error.LogException(e);
+								}
+							}, null);
+						}
+					} // while
 				}
-
-				eventArgs.prevDpad = (ushort)_hatSwitchValue;
-				raiseEvent |= _hatSwitchValue != povValue;
-                _hatSwitchValue = povValue;
-
-				if (raiseEvent)
-					_syncContext.Send((_) => { OnGamepadChanged?.Invoke(this, eventArgs); }, null);
+				finally
+				{
+                    Marshal.FreeHGlobal(inputReport);
+                }
+			} // try
+			catch (Exception e)
+			{
+				Error.LogException(e);
+				if (!(e is Error)) throw;
 			}
-
-			Marshal.FreeHGlobal(inputReport);
-
-			_threadRunningFlag = false;
-			_syncContext = null;
-			_monitoringThread = null;
+			finally
+			{
+                _threadRunningFlag = false;
+                _syncContext = null;
+                _monitoringThread = null;
+            }
 		}
 		public void Dispose()
 		{
@@ -196,12 +235,16 @@ namespace TRLEManager
 
 			Thread t = _monitoringThread;
 			_threadRunningFlag = false;
-			t.Join();
-
-			if (_hFile != IntPtr.Zero)
+			try
 			{
-				CloseHandle(_hFile);
-				_hFile = IntPtr.Zero;
+				t.Join();
+			}
+			catch (Exception e) when (e is ThreadStateException || e is ThreadInterruptedException) { }
+
+			if (_hIO != IntPtr.Zero)
+			{
+				CloseHandle(_hIO);
+				_hIO = IntPtr.Zero;
 			}
 
 			if (_preparsedData != IntPtr.Zero)
@@ -213,22 +256,27 @@ namespace TRLEManager
 		
 		public class Devices
 		{
-			private IntPtr[] _deviceHandles;
+			private IntPtr[] _deviceHandles = null;
 
-			public Devices()
+			public static Devices GetDevices()
 			{
-				_deviceHandles = GetRawInputDevices().Aggregate(new List<IntPtr>(), (list, dev) =>
+				return new Devices()
 				{
-					if (dev.dwType != RIM_TYPEHID)
+					_deviceHandles = GetRawInputDevices().Aggregate(new List<IntPtr>(), (list, dev) =>
+					{
+						if (dev.dwType != RIM_TYPEHID)
+							return list;
+
+						var devInfo = GetHidDeviceInfo(dev.hDevice);
+						if (devInfo.hid.usUsagePage == USAGEPAGE_GENERIC_DESKTOP && (devInfo.hid.usUsage == USAGEPAGE_SPORT_CONTROLS || devInfo.hid.usUsage == USAGEPAGE_GAME_CONTROLS))
+							list.Add(dev.hDevice);
+
 						return list;
+					}).ToArray()
+				};
+            }
 
-					var devInfo = GetHidDeviceInfo(dev.hDevice);
-					if (devInfo.hid.usUsagePage == 1 && (devInfo.hid.usUsage == USAGEPAGE_SPORT_CONTROLS || devInfo.hid.usUsage == USAGEPAGE_GAME_CONTROLS))
-						list.Add(dev.hDevice);
-
-					return list;
-				}).ToArray();
-			}
+            private Devices() { }
 
 			public int DeviceCount
 			{
@@ -240,175 +288,163 @@ namespace TRLEManager
 
 			public IntPtr GetHandle(int index)
 			{
-				return _deviceHandles[index];
+                if (index >= _deviceHandles.Length)
+                {
+                    var err = new Error("Index out of range.");
+                    err.Data.Add("Index to Access", index);
+                    err.Data.Add("_deviceHandles Length", _deviceHandles.Length);
+                    throw err;
+                }
+
+                return _deviceHandles[index];
 			}
 
 			public List<GamepadInfo> GetGamepads()
 			{
 				return _deviceHandles.Aggregate(new List<GamepadInfo>(), (result, handle) =>
 				{
-					IntPtr? hFile = OpenDevice(handle);
-					if (hFile == null)
-						return result;
-
+					IntPtr hFile = OpenDevice(handle);
+					
 					try
 					{
-						var gpi = GetInfoFromFile(hFile.Value);
+						var gpi = GetInfoFromIO(hFile);
 
 						result.Add(gpi);
 						return result;
 					}
 					finally
 					{
-						CloseHandle(hFile.Value);
+						CloseHandle(hFile);
 					}
 				});
 			}
 
 
-			private static GamepadInfo GetInfoFromFile(IntPtr hFile)
+			private static GamepadInfo GetInfoFromIO(IntPtr hIO)
 			{
 				return new GamepadInfo()
 				{
-					VendorName = GetDeviceManufacturerString(hFile),
-					ProductName = GetDeviceProductName(hFile),
-					SerialNumber = GetDeviceSerialNumberString(hFile)
+					VendorName = GetDeviceManufacturerString(hIO),
+					ProductName = GetDeviceProductName(hIO),
+					SerialNumber = GetDeviceSerialNumberString(hIO)
 				};
 			}
 			
 			public GamepadInfo GetInfo(int index)
 			{
-				if (index >= _deviceHandles.Length)
-					return null;
-
-				IntPtr? hFile = OpenDevice(_deviceHandles[index]);
-				if (hFile == null)
-					return null;
+				IntPtr hIO = OpenDevice(GetHandle(index));
 
 				try
 				{
-					return GetInfoFromFile(hFile.Value);
+					return GetInfoFromIO(hIO);
 				}
 				finally
 				{
-					CloseHandle(hFile.Value);
+					CloseHandle(hIO);
 				}
 			}
 
-			private static IntPtr? OpenDevice(IntPtr hDevice)
+			private static IntPtr OpenDevice(IntPtr hDevice)
 			{
 				string devName = GetDeviceName(hDevice);
 
 				IntPtr hFile = CreateFile(devName, FileAccess.ReadWrite, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
-				if (hFile.ToInt64() == -1)
-				{
-					Debug.WriteLine($"Unable to open a device to read it's info '{new Win32Exception().Message}'");
-					return null;
-				}
+				if (hFile.ToInt64() != -1)
+					return hFile;
 
-				return hFile;
+				var err = new Error($"Unable to open a device.", new Win32Exception(Marshal.GetLastWin32Error()));
+				err.Data.Add("devName", devName);
+				throw err;
 			}
 		}
 
 		public Gamepad(int deviceIndex = 0)
 		{
-			_hDevice = new Devices().GetHandle(deviceIndex);
+			_hDevice = Devices.GetDevices().GetHandle(deviceIndex);
 		}
 
-		public uint ButtonCount
+		public uint GetButtonCount(bool fresh = false)
 		{
-			get
-			{
-				var bcap = ButtonCapabilities.First(caps => caps.UsagePage == USAGEPAGE_BUTTONS);
-				return (uint)bcap.Union.Range.UsageMax - bcap.Union.Range.UsageMin + 1;
-			}
+			var bcap = GetButtonCapabilities().First(caps => caps.UsagePage == USAGEPAGE_BUTTONS);
+			return (uint)bcap.Union.Range.UsageMax - bcap.Union.Range.UsageMin + 1;
 		}
 
-		private IntPtr File
+		private IntPtr GetIOHandle(bool fresh = false)
 		{
-			get
+			if (_hIO != IntPtr.Zero)
 			{
-				if (_hFile != IntPtr.Zero) return _hFile;
-
-				_hFile = CreateFile(GetDeviceName(_hDevice), FileAccess.Read, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
-
-				if (_hFile.ToInt64() == -1)
-					throw new Exception("Unable to open the device", new Win32Exception(Marshal.GetLastWin32Error()));
-				
-				return _hFile;
+				if (!fresh) return _hIO;
+				else CloseHandle(_hIO);
 			}
+
+			_hIO = CreateFile(GetDeviceName(_hDevice), FileAccess.Read, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
+			if (_hIO.ToInt64() == -1)
+				throw new Error("Unable to open the device", new Win32Exception(Marshal.GetLastWin32Error()));
+
+			return _hIO;
 		}
 
-		private IntPtr PreparsedData
+		private IntPtr GetPreparsedData(bool fresh = false)
 		{
-			get
-			{
-				if (_preparsedData != IntPtr.Zero) return _preparsedData;
+			if (_preparsedData != IntPtr.Zero && !fresh) return _preparsedData;
 
-				if (!HidD_GetPreparsedData(File, out _preparsedData))
-					throw new Exception("Unable to get device's preparsed data", new Win32Exception(Marshal.GetLastWin32Error()));
+			if (!HidD_GetPreparsedData(GetIOHandle(fresh), out _preparsedData))
+				throw new Error("Unable to get device's preparsed data", new Win32Exception(Marshal.GetLastWin32Error()));
 
-				return _preparsedData;
-			}
+			return _preparsedData;
 		}
 
-		private ref readonly HIDP_CAPS Capabilities
+		private ref readonly HIDP_CAPS GetGamepadCapabilities(bool fresh = false)
 		{
-			get
-			{
-				if (_caps.Usage == 5) return ref _caps;
+			if (_caps.Usage == USAGEPAGE_GAME_CONTROLS) return ref _caps;
 
-				uint r = HidP_GetCaps(PreparsedData, out _caps);
-				if (r == HIDP_STATUS_SUCCESS) return ref _caps;
+			uint r = HidP_GetCaps(GetPreparsedData(fresh), out _caps);
+			if (r == HIDP_STATUS_SUCCESS) return ref _caps;
 
-				throw new Exception($"Unable to get device capabilities '{HidResultToErrorString(r)}'");
-			}
+			throw new Error($"Unable to get device capabilities '{HidResultToErrorString(r)}'");
 		}
 
-		private IReadOnlyList<HIDP_BUTTON_CAPS> ButtonCapabilities
+		private IReadOnlyList<HIDP_BUTTON_CAPS> GetButtonCapabilities(bool fresh = false)
 		{
-			get
+			if (_buttonCaps != null && !fresh) return _buttonCaps;
+
+			ushort numberInputButtonCaps = GetGamepadCapabilities(fresh).NumberInputButtonCaps;
+			_buttonCaps = new HIDP_BUTTON_CAPS[numberInputButtonCaps];
+
+			ushort numberInputButtonCapsReturned = numberInputButtonCaps;
+			uint r = HidP_GetButtonCaps(0, _buttonCaps, ref numberInputButtonCapsReturned, _preparsedData);
+			if (r != HIDP_STATUS_SUCCESS)
 			{
-				if (_buttonCaps != null) return _buttonCaps;
-
-				ushort numberInputButtonCaps = Capabilities.NumberInputButtonCaps;
-				_buttonCaps = new HIDP_BUTTON_CAPS[numberInputButtonCaps];
-
-				ushort numberInputButtonCapsReturned = numberInputButtonCaps;
-				uint r = HidP_GetButtonCaps(0, _buttonCaps, ref numberInputButtonCapsReturned, _preparsedData);
-				if (r != HIDP_STATUS_SUCCESS)
-				{
-					_buttonCaps = null;
-					throw new Exception($"Unable to get device button capabilities - '{HidResultToErrorString(r)}'");
-				}
-					
-				if (numberInputButtonCapsReturned != numberInputButtonCaps)
-					Debug.WriteLine($"Only acquired {numberInputButtonCapsReturned} button capabilities out of {numberInputButtonCaps}");
-
-				return _buttonCaps;
+				_buttonCaps = null;
+				throw new Exception($"Unable to get device button capabilities - '{HidResultToErrorString(r)}'");
 			}
+
+			if (numberInputButtonCapsReturned != numberInputButtonCaps)
+				new Error($"Only acquired {numberInputButtonCapsReturned} button capabilities out of {numberInputButtonCaps}").LogError();
+
+			return _buttonCaps;
 		}
 
-		private IReadOnlyList<HIDP_VALUE_CAPS> ValueCapabilities
+		private IReadOnlyList<HIDP_VALUE_CAPS> GetValueCapabilities(bool fresh = false)
 		{
-			get
+			if (_valueCaps != null && !fresh) return _valueCaps;
+
+			ushort numberValueCaps = GetGamepadCapabilities(fresh).NumberInputValueCaps;
+
+			_valueCaps = new HIDP_VALUE_CAPS[numberValueCaps];
+			ushort numberInputValueCapsReturned = numberValueCaps;
+
+			uint r = HidP_GetValueCaps(0, _valueCaps, ref numberInputValueCapsReturned, _preparsedData);
+			if (r != HIDP_STATUS_SUCCESS)
 			{
-				if (_valueCaps != null) return _valueCaps;
-
-				ushort numberValueCaps = Capabilities.NumberInputValueCaps;
-
-				_valueCaps = new HIDP_VALUE_CAPS[numberValueCaps];
-				ushort numberInputValueCapsReturned = numberValueCaps;
-
-				uint r = HidP_GetValueCaps(0, _valueCaps, ref numberInputValueCapsReturned, _preparsedData);
-				if (r != HIDP_STATUS_SUCCESS)
-					throw new Exception($"Unable to get device value capabilities - '{HidResultToErrorString(r)}'");
-
-				if (numberInputValueCapsReturned != numberValueCaps)
-					Debug.WriteLine($"Only acquired {numberInputValueCapsReturned} value capabilities out of {numberValueCaps}");
-
-				return _valueCaps;
+				_valueCaps = null;
+				throw new Error($"Unable to get device value capabilities - '{HidResultToErrorString(r)}'");
 			}
+
+			if (numberInputValueCapsReturned != numberValueCaps)
+				new Error($"Only acquired {numberInputValueCapsReturned} value capabilities out of {numberValueCaps}").LogError();
+
+			return _valueCaps;
 		}
 
 		private const int RID_HEADER = 0x10000005;
@@ -417,14 +453,7 @@ namespace TRLEManager
 		private const uint RIDEV_INPUTSINK = 0x00000100;
 		private const uint RIDEV_EXINPUTSINK = 0x00001000;
 
-		private static string ByteArrayToString(byte[] ba)
-		{
-			StringBuilder hex = new StringBuilder(ba.Length * 2);
-			foreach (byte b in ba)
-				hex.AppendFormat("{0:x2}-", b);
-			return hex.ToString();
-		}
-
+		
 		[StructLayout(LayoutKind.Sequential)]
 		private struct RAWINPUTDEVICE
 		{
@@ -489,10 +518,10 @@ namespace TRLEManager
 		}
 
 		[DllImport("user32.dll", SetLastError = true)]
-		private static extern uint GetRawInputDeviceList([Out] RAWINPUTDEVICELIST[] pRawInputDeviceList, [In, Out] ref uint puiNumDevices, uint cbSize);
+		private static extern int GetRawInputDeviceList([Out] RAWINPUTDEVICELIST[] pRawInputDeviceList, [In, Out] ref uint puiNumDevices, uint cbSize);
 
 		[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
-		private static extern uint GetRawInputDeviceInfo(IntPtr hDevice, uint uiCommand, IntPtr pData, ref uint pcbSize);
+		private static extern int GetRawInputDeviceInfo(IntPtr hDevice, uint uiCommand, IntPtr pData, ref int pcbSize);
 
 		[DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
 		private static extern IntPtr CreateFile(
@@ -799,151 +828,148 @@ namespace TRLEManager
 			uint deviceCount = 0;
 
 			if (GetRawInputDeviceList(null, ref deviceCount, (uint)Marshal.SizeOf(typeof(RAWINPUTDEVICELIST))) != 0)
-				return null;
+				throw new Error("Failed to get raw input device list size.", new Win32Exception(Marshal.GetLastWin32Error()));
 
 			RAWINPUTDEVICELIST[] rawInputDeviceList = new RAWINPUTDEVICELIST[deviceCount];
 
-			if (GetRawInputDeviceList(rawInputDeviceList, ref deviceCount, (uint)Marshal.SizeOf(typeof(RAWINPUTDEVICELIST))) == unchecked((uint)-1))
-				return null;
+			if (GetRawInputDeviceList(rawInputDeviceList, ref deviceCount, (uint)Marshal.SizeOf(typeof(RAWINPUTDEVICELIST))) == -1)
+                throw new Error("Failed to get raw input device list.", new Win32Exception(Marshal.GetLastWin32Error()));
 
-			return rawInputDeviceList;
+            return rawInputDeviceList;
 		}
 
 		private static RID_DEVICE_INFO GetHidDeviceInfo(IntPtr hDevice)
 		{
-			uint size = 0;
+			int size = 0;
 
-			if (GetRawInputDeviceInfo(hDevice, RIDI_DEVICEINFO, IntPtr.Zero, ref size) == unchecked((uint)-1) || size == 0)
-			{
-				throw new InvalidOperationException("Failed to get device info size.");
-			}
+			if (GetRawInputDeviceInfo(hDevice, RIDI_DEVICEINFO, IntPtr.Zero, ref size) == -1 || size == 0)
+				throw new Error("Failed to get device info size.", new Win32Exception(Marshal.GetLastWin32Error()));
 
-			IntPtr buffer = Marshal.AllocHGlobal((int)size);
-
-			try
-			{
-				// Initialize RID_DEVICE_INFO structure with its size
+			return WrapMarshalBuffer(size, buffer => { 
+				
+				// RID_DEVICE_INFO must be initialized with it's structure size before passing to GetRawInputDeviceInfo
 				var deviceInfo = new RID_DEVICE_INFO
 				{
 					cbSize = (uint)Marshal.SizeOf<RID_DEVICE_INFO>()
 				};
-				Marshal.StructureToPtr(deviceInfo, buffer, false);
 
-				// Fill the buffer with the device info
-				if (GetRawInputDeviceInfo(hDevice, RIDI_DEVICEINFO, buffer, ref size) == unchecked((uint)-1))
+				try
 				{
-					throw new Win32Exception(Marshal.GetLastWin32Error(), "Failed to get raw input device info.");
+					Marshal.StructureToPtr(deviceInfo, buffer, false);
+				}
+				catch (ArgumentException e)
+				{
+					throw new Error("Failed to copy structure to buffer.", e);
 				}
 
-				// Marshal the data into RID_DEVICE_INFO structure
-				deviceInfo = Marshal.PtrToStructure<RID_DEVICE_INFO>(buffer);
+				if (GetRawInputDeviceInfo(hDevice, RIDI_DEVICEINFO, buffer, ref size) == -1)
+					throw new Error("Failed to get raw input device info.", new Win32Exception(Marshal.GetLastWin32Error()));
 
-				// Ensure it's of type HID
+				try
+				{
+					deviceInfo = Marshal.PtrToStructure<RID_DEVICE_INFO>(buffer);
+				}
+				catch (Exception e) when (
+					e is ArgumentException
+					|| e is MissingMethodException)
+				{
+					throw new Error("Failed to copy from buffer to structure.", e);
+				}
+
+				
 				if (deviceInfo.dwType != 2)  // RIM_TYPEHID == 2
 				{
-					throw new InvalidOperationException("The device is not a HID device.");
+					var err = new Error("The device is not a HID device.");
+					err.Data.Add("deviceInfo.dwType", deviceInfo.dwType);
+					throw err;
 				}
 
 				return deviceInfo;
-			}
-			finally
-			{
-				Marshal.FreeHGlobal(buffer);
-			}
-		}
+            });
+        }
+
+		private static T WrapMarshalBuffer<T>(int size, Func<IntPtr, T> action)
+		{
+			IntPtr buffer;
+            try
+            {
+                buffer = Marshal.AllocHGlobal(size);
+            }
+            catch (OutOfMemoryException e)
+            {
+                throw new Error("Out of memory. Unable to get raw input info.", e);
+            }
+
+            try
+            {
+				return action(buffer);
+            }
+            finally
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
 
 		private static string GetDeviceName(IntPtr hDevice)
 		{
-			uint size = 0;
+			int size = 0;
 
 			if (GetRawInputDeviceInfo(hDevice, RIDI_DEVICENAME, IntPtr.Zero, ref size) != 0)
-				return null;
+				throw new Error("Unable to get raw input info size.", new Win32Exception(Marshal.GetLastWin32Error()));
 
-			IntPtr buffer = Marshal.AllocHGlobal((int)size * sizeof(char));
-	
-			if (GetRawInputDeviceInfo(hDevice, RIDI_DEVICENAME, buffer, ref size) != size)
-				return null;
-
-			string local = Marshal.PtrToStringUni(buffer);
-			Marshal.FreeHGlobal(buffer);
-
-			return local;
-
-		}
-
-		private static byte[] PollDevice(IntPtr handle, int reportLength)
-		{
-			IntPtr buffer = Marshal.AllocHGlobal(reportLength + 1);
-
-			Debug.WriteLine(Marshal.GetLastWin32Error());
-			if (!HidD_GetInputReport(handle, buffer, (uint) reportLength + 1))
+			return WrapMarshalBuffer(size, buffer =>
 			{
-				Debug.WriteLine(Marshal.GetLastWin32Error());
+				if (GetRawInputDeviceInfo(hDevice, RIDI_DEVICENAME, buffer, ref size) != size)
+					throw new Error("Unable to get raw input info.", new Win32Exception(Marshal.GetLastWin32Error()));
 
-				Marshal.FreeHGlobal(buffer);
+				string name = Marshal.PtrToStringUni(buffer);
+				if (string.IsNullOrEmpty(name))
+					throw new Error("Device name was empty.");
 
-				Debug.WriteLine(Marshal.GetLastWin32Error());
-				
-				return null;
-			}
-
-			byte[] result = new byte[reportLength];
-
-			Marshal.Copy(buffer, result, 0, reportLength + 1);
-			Marshal.FreeHGlobal(buffer);
-			return result;
+				return name;
+			});
 		}
 
 		private static string GetDeviceManufacturerString(IntPtr hFile)
 		{
 			int bufferSize = 256;
-			IntPtr buffer = Marshal.AllocHGlobal(bufferSize);
-			if (!HidD_GetManufacturerString(hFile, buffer, bufferSize))
-				return null;
 
-			string result = Marshal.PtrToStringUni(buffer);
-			Marshal.FreeHGlobal(buffer);
+			return WrapMarshalBuffer(bufferSize, buffer => {
+				if (!HidD_GetManufacturerString(hFile, buffer, bufferSize))
+					throw new Error("Unable to get device manufacturer string.", new Win32Exception(Marshal.GetLastWin32Error()));
 
-			return result;
+				string result = Marshal.PtrToStringUni(buffer);
+				if (string.IsNullOrEmpty(result))
+					throw new Error("Unable to get device manufacturer string.", new Win32Exception(Marshal.GetLastWin32Error()));
+
+				return result;
+			});
 		}
 
 		private static string GetDeviceProductName(IntPtr hFile)
 		{
 			int bufferSize = 256;
-			IntPtr buffer = Marshal.AllocHGlobal(bufferSize);
-			if (!HidD_GetProductString(hFile, buffer, bufferSize))
-				return null;
 
-			string result = Marshal.PtrToStringUni(buffer);
-			Marshal.FreeHGlobal(buffer);
+			return WrapMarshalBuffer(bufferSize, buffer =>
+			{
+				if (!HidD_GetProductString(hFile, buffer, bufferSize))
+					throw new Error("Unable to get device product string.", new Win32Exception(Marshal.GetLastWin32Error()));
 
-			return result;
-		}
+				return Marshal.PtrToStringUni(buffer);
+			});
+        }
 
 		private static string GetDeviceSerialNumberString(IntPtr hFile)
 		{
 			int bufferSize = 256;
-			IntPtr buffer = Marshal.AllocHGlobal(bufferSize);
-			if (!HidD_GetSerialNumberString(hFile, buffer, bufferSize))
-				return null;
-
-			string result = Marshal.PtrToStringUni(buffer);
-			Marshal.FreeHGlobal(buffer);
-
-			return result;
-		}
-
-		private static IntPtr GetInputReport(IntPtr hFile, ushort inputReportLength)
-		{
-			IntPtr buffer = Marshal.AllocHGlobal(inputReportLength);
-			if (!ReadFile(hFile, buffer, inputReportLength, out uint bytesRead, IntPtr.Zero) || bytesRead != inputReportLength)
+			return WrapMarshalBuffer(bufferSize, buffer =>
 			{
-				Marshal.FreeHGlobal(buffer);
-				return IntPtr.Zero;
-			}
+				if (!HidD_GetSerialNumberString(hFile, buffer, bufferSize))
+					throw new Error("Unable to get device serial number.", new Win32Exception(Marshal.GetLastWin32Error()));
 
-			return buffer;
-		}
+				return Marshal.PtrToStringUni(buffer);
+			});
+        }
 
 		private static string HidResultToErrorString(uint r)
 		{
@@ -952,16 +978,8 @@ namespace TRLEManager
 				case HIDP_STATUS_SUCCESS: return "Success";
 				case HIDP_STATUS_INVALID_PREPARSED_DATA: return "Invalid Preparsed Data";
 				case HIDP_STATUS_BUFFER_TOO_SMALL: return "Buffer Too Small";
-				default: return "Unknown Error";
+				default: return $"0x{r.ToString("x")} - Unknown Error";
 			}
-		}
-
-		private static HIDP_DATA[] GetData(uint numberDataIndices, IntPtr preparsedData, IntPtr inputReport, uint inputReportLength)
-		{
-			HIDP_DATA[] dataArray = new HIDP_DATA[numberDataIndices];
-
-			HidP_GetData(0, dataArray, ref numberDataIndices, preparsedData, inputReport, inputReportLength);
-			return dataArray;
 		}
 	}
 }

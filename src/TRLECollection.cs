@@ -31,7 +31,6 @@ namespace TRLEManager
 		public static void SaveToSettings()
 		{
 			Settings.Default.TRLECollection = TRLE.BulkSerialize(_trles);
-			Settings.Default.Save();
 		}
 
 		public static void SetAsItemsSource(ItemsControl ctrl)

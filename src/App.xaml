@@ -70,7 +70,10 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
-
+        <Style TargetType="CheckBox">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+        </Style>
+        
         <Style TargetType="Window" x:Key="AppWindowStyle">
             <Setter Property="Background">
                 <Setter.Value>

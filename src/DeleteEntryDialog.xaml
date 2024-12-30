@@ -16,9 +16,6 @@
         <Style TargetType="TextBox" BasedOn="{StaticResource AppTextBoxStyle}">
             <Setter Property="IsReadOnly" Value="True"/>
         </Style>
-        <Style TargetType="CheckBox">
-            <Setter Property="Foreground" Value="#E0E0E0"/>
-        </Style>
     </Window.Resources>
     <Grid>
         <Grid.RowDefinitions>

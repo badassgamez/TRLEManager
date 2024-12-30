@@ -7,6 +7,7 @@
 	License: MIT
 */
 
+using System;
 using System.Linq;
 using System.Text;
 
@@ -37,7 +38,7 @@ namespace TRLEManager
 
 		public bool IsConnected()
 		{
-			return null != new Gamepad.Devices().GetGamepads().FirstOrDefault(info => 
+			return null != Gamepad.Devices.GetDevices().GetGamepads().FirstOrDefault(info => 
 				info.VendorName == VendorName
 				&& info.ProductName == ProductName
 				&& info.SerialNumber == SerialNumber);
@@ -53,8 +54,28 @@ namespace TRLEManager
 					return info;
 
 				int pos = line.IndexOf('=');
-				string key = line.Substring(0, pos);
-				string val = line.Substring(pos + 1);
+				if (pos == -1)
+				{
+					var err = new Error("A gamepad info store entry is malformed.");
+                    err.Data.Add("line", line);
+                    err.Data.Add("serial", serial);
+					return info;
+				}
+
+				string key; 
+				string val;
+				try
+				{
+					key = line.Substring(0, pos);
+					val = line.Substring(pos + 1);
+				}
+				catch (ArgumentOutOfRangeException e)
+				{
+					var err = new Error("Failed to parse gamepad info.", e);
+					err.Data.Add("line", line);
+					err.Data.Add("pos", pos);
+					throw err;
+				}
 
 				switch (key)
 				{
@@ -70,7 +91,8 @@ namespace TRLEManager
 
 		public Gamepad ToGamepad()
 		{
-			var devs = new Gamepad.Devices();
+			var devs = Gamepad.Devices.GetDevices();
+
 			for (int i = 0; i < devs.DeviceCount; i++)
 			{
 				var dev = devs.GetInfo(i);
@@ -79,7 +101,12 @@ namespace TRLEManager
 					return new Gamepad(i);
 			}
 
-			return null;
+			var err = new Error("Failed to locate a previous gamepad.");
+			err.Data.Add("device count", devs.DeviceCount);
+			err.Data.Add("VendorName", VendorName);
+			err.Data.Add("ProductName", ProductName);
+			err.Data.Add("SerialNumber", SerialNumber);
+			throw err;
 		}
 	}
 }
