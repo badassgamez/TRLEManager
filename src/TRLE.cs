@@ -598,7 +598,7 @@ namespace TRLEManager
 
             try
             {
-                ZipFile.ExtractToDirectory(zipPath, extractPath);
+                ZipFileAlt.ExtractToDirectory(zipPath, extractPath, true);
             }
             catch (Exception e) when (
                 e is ArgumentException
