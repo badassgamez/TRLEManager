@@ -212,8 +212,11 @@ namespace TRLEManager
 				if (info.IsConnected())
 					return info;
 			}
-			
-			return Gamepad.Devices.GetDevices().GetInfo(0);
+
+			var devices = Gamepad.Devices.GetDevices();
+			//var info = devices.GetInfo(0);
+			return devices.DeviceCount != 0 ? devices.GetInfo(0) : null;
+			//return null;
 		}
 
 		public static void RunTRLE(TRLE trle)
@@ -237,24 +240,29 @@ namespace TRLEManager
 			if (!string.IsNullOrEmpty(gamepadMapping))
 			{
 				string[] split = gamepadMapping.Split('\n');
-				return split.Aggregate(new VirtualGamepadButton[split.Length], (ary, pair) =>
+				VirtualGamepadButton[] mapping = new VirtualGamepadButton[split.Length];
+
+				try
 				{
-					int pos = pair.IndexOf('=');
-					if (pos == -1) return ary;
+					for (int i = 0; i < split.Length; i++)
+					{
+						if (!uint.TryParse(split[i], out uint v))
+						{
+							var err = new Error($"While attempting to recall Gamepad Mapping settings, Integer parse failure");
+							err.Data.Add($"current split", split[i]);
+							err.Data.Add($"full setting", gamepadMapping);
+							throw err;
+						}
 
-					string key = pair.Substring(0, pos);
-					string value = pair.Substring(pos + 1);
+						mapping[i] = (VirtualGamepadButton)v;
+					}
 
-					if (!uint.TryParse(key, out uint k))
-						return ary;
+					return mapping;
 
-					if (!int.TryParse(key, out int val))
-						return ary;
-
-					ary[k] = (VirtualGamepadButton)val;
-
-					return ary;
-				});
+				} catch (Error e)
+				{
+					Error.LogException(e);
+				}
 			}
 
 			return new VirtualGamepadButton[]
@@ -285,27 +293,37 @@ namespace TRLEManager
 
 			if (!string.IsNullOrEmpty(gameKeyMapping))
 			{
+				string[] nlSplits = gameKeyMapping.Split('\n');
+
 				try
 				{
-					string[] nlSplits = gameKeyMapping.Split('\n');
 
 					return nlSplits.Aggregate(new Dictionary<VirtualGamepadButton, string>(), (dict, mapping) =>
 					{
 						int pos = mapping.IndexOf('=');
-						if (pos == -1) return dict;
+						if (pos == -1)
+							throw new Error($"Invalid mapping format, missing '=' in '{mapping}'");
 
 						string key = mapping.Substring(0, pos);
 						string value = mapping.Substring(pos + 1);
 
-						if (!ushort.TryParse(key, out ushort k))
-							return dict;
+						ushort k = ushort.Parse(key);
 
 						dict.Add((VirtualGamepadButton)k, value);
 
 						return dict;
 					});
+
 				}
-				catch { }
+				catch (Exception e) when (
+					e is ArgumentOutOfRangeException
+					|| e is ArgumentNullException 
+					|| e is OverflowException 
+					|| e is FormatException
+					|| e is Error)
+				{
+					Error.LogException(e);
+				}
 			}
 
 			// default keys
@@ -359,20 +377,31 @@ namespace TRLEManager
 			{
 				string[] nlSplits = keyboardMapping.Split('\n');
 
-				return nlSplits.Aggregate(new Dictionary<string, Key>(), (dict, mapping) => { 
-					int pos = mapping.IndexOf("=");
-					if (pos == -1) return dict;
+				try
+				{
+					return nlSplits.Aggregate(new Dictionary<string, Key>(), (dict, mapping) =>
+					{
+						int pos = mapping.IndexOf("=");
+						if (pos == -1)
+							throw new Error($"Invalid mapping format, missing '=' in '{mapping}'");
+						
+						string key = mapping.Substring(0, pos);
+						string value = mapping.Substring(pos + 1);
 
-					string key = mapping.Substring(0, pos);
-					string value = mapping.Substring(pos + 1);
+						ushort val = ushort.Parse(value);
+						
+						dict.Add(key, (Key)val);
 
-					if (!ushort.TryParse(value, out ushort val))
 						return dict;
-
-					dict.Add(key, (Key)val);
-
-					return dict;
-				});
+					});
+				} catch (Exception e) when (
+					e is ArgumentNullException
+					|| e is ArgumentOutOfRangeException
+					|| e is FormatException
+					|| e is OverflowException)
+				{
+					Error.LogException(new Error("While attempting to recall Keyboard Mapping...", e));
+				}
 			}
 
 			// default Keyboard mapping

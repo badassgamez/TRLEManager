@@ -108,10 +108,10 @@
             <TextBox TextChanged="TextBox_InfoZIPPath_TextChanged" Name="TextBox_InfoZIPPath" Grid.Column="0"/>
             <Button Width="75" Padding="5,0,5,0" Margin="5" Grid.Column="1" Content="Browse..."/>
         </Grid>
-        <StackPanel Orientation="Horizontal" Grid.Column="2" Grid.Row="9">
+        <!-- <StackPanel Orientation="Horizontal" Grid.Column="2" Grid.Row="9">
             <CheckBox Name="CheckBox_EnableGamepad" IsChecked="True" Content="Enable Gamepad" Margin="5"/>
             <CheckBox Name="CheckBox_RemoveWindowBorder" IsChecked="True" Content="Remove Window Border" Margin="5"/>
-        </StackPanel>
+        </StackPanel> -->
         <!-- Skipping Grid.Row="10" -->
 
         <Button IsEnabled="False" Name="Button_Install" Click="Button_Install_Click" Width="75" Grid.Column="0" Grid.Row="11" Padding="5" Margin="5">Install</Button>

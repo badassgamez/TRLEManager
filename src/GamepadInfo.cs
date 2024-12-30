@@ -17,7 +17,7 @@ namespace TRLEManager
 	{
 		public string VendorName { get; set; }
 		public string ProductName { get; set; }
-		public string SerialNumber { get; set; }
+		// public string SerialNumber { get; set; }
 
 		
 		public override string ToString()
@@ -31,7 +31,7 @@ namespace TRLEManager
 
 			serialized.Append($"VendorName={VendorName}\n");
 			serialized.Append($"ProductName={ProductName}\n");
-			serialized.Append($"SerialNumber={SerialNumber}\n");
+			//serialized.Append($"SerialNumber={SerialNumber}\n");
 
 			return serialized.ToString();
 		}
@@ -41,7 +41,8 @@ namespace TRLEManager
 			return null != Gamepad.Devices.GetDevices().GetGamepads().FirstOrDefault(info => 
 				info.VendorName == VendorName
 				&& info.ProductName == ProductName
-				&& info.SerialNumber == SerialNumber);
+				//&& info.SerialNumber == SerialNumber
+				);
 		}
 
 		public static GamepadInfo Deserialize(string serial)
@@ -81,7 +82,7 @@ namespace TRLEManager
 				{
 					case "VendorName": info.VendorName = val; break;
 					case "ProductName": info.ProductName = val; break;
-					case "SerialNumber": info.SerialNumber = val; break;
+					//case "SerialNumber": info.SerialNumber = val; break;
 					default: break;
 				}
 
@@ -92,21 +93,28 @@ namespace TRLEManager
 		public Gamepad ToGamepad()
 		{
 			var devs = Gamepad.Devices.GetDevices();
+			if (devs.DeviceCount == 0)
+			{
+				var err = new Error("Failed to locate a previous gamepad.");
+				err.Data.Add("device count", devs.DeviceCount);
+				err.Data.Add("VendorName", VendorName);
+				err.Data.Add("ProductName", ProductName);
+				//err.Data.Add("SerialNumber", SerialNumber);
+				throw err;
+			}
 
 			for (int i = 0; i < devs.DeviceCount; i++)
 			{
 				var dev = devs.GetInfo(i);
 
-				if (dev.VendorName == VendorName && dev.ProductName == ProductName && dev.SerialNumber == SerialNumber)
+				if (dev.VendorName == VendorName 
+					&& dev.ProductName == ProductName 
+					//&& dev.SerialNumber == SerialNumber
+					)
 					return new Gamepad(i);
 			}
 
-			var err = new Error("Failed to locate a previous gamepad.");
-			err.Data.Add("device count", devs.DeviceCount);
-			err.Data.Add("VendorName", VendorName);
-			err.Data.Add("ProductName", ProductName);
-			err.Data.Add("SerialNumber", SerialNumber);
-			throw err;
+			return new Gamepad();
 		}
 	}
 }

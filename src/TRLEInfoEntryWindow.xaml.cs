@@ -44,12 +44,12 @@ namespace TRLEManager
 				TextBox_TRCustomsID.Text = startinginfo.TRCustomsID;
 				TextBox_InfoEXEPath.Text = startinginfo.EXEPath;
 				TextBox_InfoZIPPath.Text = startinginfo.CompressedPath;
-				CheckBox_EnableGamepad.IsChecked = startinginfo.UseGamepad;
-				CheckBox_RemoveWindowBorder.IsChecked = startinginfo.RemoveWindowBorder;
+				//CheckBox_EnableGamepad.IsChecked = startinginfo.UseGamepad;
+				//CheckBox_RemoveWindowBorder.IsChecked = startinginfo.RemoveWindowBorder;
 			}
 		}
 
-		private void Compile()
+		private void UpdateInfo()
 		{
 			Info.Name = TextBox_Name.Text;
 			Info.Author = TextBox_Author.Text;
@@ -60,14 +60,14 @@ namespace TRLEManager
 			Info.TRCustomsID = TextBox_TRCustomsID.Text;
 			Info.EXEPath = TextBox_InfoEXEPath.Text;
 			Info.CompressedPath = TextBox_InfoZIPPath.Text;
-			Info.UseGamepad = CheckBox_EnableGamepad.IsChecked.Value;
-			Info.RemoveWindowBorder = CheckBox_RemoveWindowBorder.IsChecked.Value;
+			//Info.UseGamepad = CheckBox_EnableGamepad.IsChecked.Value;
+			//Info.RemoveWindowBorder = CheckBox_RemoveWindowBorder.IsChecked.Value;
 		}
 
 		private void Button_OK_Click(object sender, RoutedEventArgs e)
 		{
 			DialogResult = true;
-			Compile();
+			UpdateInfo();
 			Close();
 		}
 
@@ -200,7 +200,7 @@ namespace TRLEManager
 
 		private async void Button_Install_Click(object sender, RoutedEventArgs e)
 		{
-			Compile();
+			UpdateInfo();
 
 			try
 			{

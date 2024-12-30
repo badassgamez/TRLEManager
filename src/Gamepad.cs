@@ -88,10 +88,10 @@ namespace TRLEManager
 
 		public void StopMonitor()
 		{
+			_threadRunningFlag = false;
+
 			if (!CancelIoEx(_hIO, IntPtr.Zero))
 				new Error("Failed to cancel IO operation on gamepad monitoring thread.", new Win32Exception(Marshal.GetLastWin32Error())).LogError();
-
-			_threadRunningFlag = false;
 		}
 
 		private void MonitorThread()
@@ -122,7 +122,13 @@ namespace TRLEManager
 					while (_threadRunningFlag)
 					{
 						if (!ReadFile(_hIO, inputReport, _caps.InputReportByteLength, out uint bytesRead, IntPtr.Zero))
-							throw new Error($"Failed to read from the device.", new Win32Exception(Marshal.GetLastWin32Error()));
+						{
+							int lasterr = Marshal.GetLastWin32Error();
+							if (lasterr != ERROR_OPERATION_ABORTED)
+								throw new Error($"Failed to read from the device.", new Win32Exception(Marshal.GetLastWin32Error()));
+
+							break;
+						}
 
 						uint ntresult = HidP_GetUsageValue(0, USAGEPAGE_GENERIC_DESKTOP, 0, USAGE_HATSWITCH, out uint povValue, _preparsedData, inputReport, _caps.InputReportByteLength);
 						if (ntresult != HIDP_STATUS_SUCCESS && ntresult != HIDP_STATUS_USAGE_NOT_FOUND)
@@ -209,6 +215,7 @@ namespace TRLEManager
 								}
 							}, null);
 						}
+						Thread.Sleep(1);
 					} // while
 				}
 				finally
@@ -223,23 +230,17 @@ namespace TRLEManager
 			}
 			finally
 			{
+				CloseHandle(_hIO);
                 _threadRunningFlag = false;
-                _syncContext = null;
-                _monitoringThread = null;
             }
 		}
+
 		public void Dispose()
 		{
 			if (_disposed) return;
 			_disposed = true;
 
-			Thread t = _monitoringThread;
 			_threadRunningFlag = false;
-			try
-			{
-				t.Join();
-			}
-			catch (Exception e) when (e is ThreadStateException || e is ThreadInterruptedException) { }
 
 			if (_hIO != IntPtr.Zero)
 			{
@@ -326,7 +327,7 @@ namespace TRLEManager
 				{
 					VendorName = GetDeviceManufacturerString(hIO),
 					ProductName = GetDeviceProductName(hIO),
-					SerialNumber = GetDeviceSerialNumberString(hIO)
+					// SerialNumber = GetDeviceSerialNumberString(hIO)
 				};
 			}
 			
@@ -340,7 +341,7 @@ namespace TRLEManager
 				}
 				finally
 				{
-					CloseHandle(hIO);
+					 CloseHandle(hIO);
 				}
 			}
 
@@ -348,7 +349,7 @@ namespace TRLEManager
 			{
 				string devName = GetDeviceName(hDevice);
 
-				IntPtr hFile = CreateFile(devName, FileAccess.ReadWrite, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
+				IntPtr hFile = CreateFileW(devName, FileAccess.ReadWrite, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
 				if (hFile.ToInt64() != -1)
 					return hFile;
 
@@ -377,7 +378,7 @@ namespace TRLEManager
 				else CloseHandle(_hIO);
 			}
 
-			_hIO = CreateFile(GetDeviceName(_hDevice), FileAccess.Read, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
+			_hIO = CreateFileW(GetDeviceName(_hDevice), FileAccess.Read, FileShare.ReadWrite, IntPtr.Zero, FileMode.Open, 0, IntPtr.Zero);
 			if (_hIO.ToInt64() == -1)
 				throw new Error("Unable to open the device", new Win32Exception(Marshal.GetLastWin32Error()));
 
@@ -523,14 +524,14 @@ namespace TRLEManager
 		[DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
 		private static extern int GetRawInputDeviceInfo(IntPtr hDevice, uint uiCommand, IntPtr pData, ref int pcbSize);
 
-		[DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
-		private static extern IntPtr CreateFile(
-			[MarshalAs(UnmanagedType.LPTStr)] string filename,
+		[DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+		public static extern IntPtr CreateFileW(
+			[MarshalAs(UnmanagedType.LPWStr)] string filename,
 			[MarshalAs(UnmanagedType.U4)] FileAccess access,
 			[MarshalAs(UnmanagedType.U4)] FileShare share,
-			IntPtr securityAttributes, // optional SECURITY_ATTRIBUTES struct or IntPtr.Zero
+			IntPtr securityAttributes,
 			[MarshalAs(UnmanagedType.U4)] FileMode creationDisposition,
-			uint flagsAndAttributes,
+			[MarshalAs(UnmanagedType.U4)] FileAttributes flagsAndAttributes,
 			IntPtr templateFile);
 
 		[DllImport("kernel32.dll", SetLastError = true)]
@@ -577,6 +578,8 @@ namespace TRLEManager
 			public ushort usUsage;
 		}
 
+		private const uint ERROR_OPERATION_ABORTED = 0x3E3;
+		
 		private const uint HIDP_STATUS_SUCCESS = 0x00110000;
 		private const uint HIDP_STATUS_INVALID_PREPARSED_DATA = 0xC0110001;
 		private const uint HIDP_STATUS_USAGE_NOT_FOUND = 0xC0110004;
@@ -632,8 +635,8 @@ namespace TRLEManager
 		[return: MarshalAs(UnmanagedType.Bool)]
 		private static extern bool HidD_GetProductString(IntPtr HidDeviceObject, IntPtr Buffer, int BufferLength);
 
-		[DllImport("hid.dll", SetLastError = true)]
-		public static extern bool HidD_GetSerialNumberString(IntPtr HidDeviceObject, IntPtr Buffer, int BufferLength);
+		//[DllImport("hid.dll", SetLastError = true)]
+		//public static extern bool HidD_GetSerialNumberString(IntPtr HidDeviceObject, IntPtr Buffer, int BufferLength);
 
 		[DllImport("hid.dll", SetLastError = true)]
 		private static extern uint HidP_GetUsageValue(ushort ReportType, ushort UsagePage, ushort LinkCollection, ushort Usage, out uint UsageValue, IntPtr PreparsedData, IntPtr Report, uint ReportLength);
@@ -845,13 +848,16 @@ namespace TRLEManager
 			if (GetRawInputDeviceInfo(hDevice, RIDI_DEVICEINFO, IntPtr.Zero, ref size) == -1 || size == 0)
 				throw new Error("Failed to get device info size.", new Win32Exception(Marshal.GetLastWin32Error()));
 
-			return WrapMarshalBuffer(size, buffer => { 
-				
+			var deviceInfo = new RID_DEVICE_INFO
+			{
+				cbSize = (uint)size
+			};
+
+			IntPtr buffer = Marshal.AllocHGlobal(size);
+
+			try
+			{
 				// RID_DEVICE_INFO must be initialized with it's structure size before passing to GetRawInputDeviceInfo
-				var deviceInfo = new RID_DEVICE_INFO
-				{
-					cbSize = (uint)Marshal.SizeOf<RID_DEVICE_INFO>()
-				};
 
 				try
 				{
@@ -875,101 +881,126 @@ namespace TRLEManager
 				{
 					throw new Error("Failed to copy from buffer to structure.", e);
 				}
+			}
+			finally
+			{
+				Marshal.FreeHGlobal(buffer);
+			}
 
-				
-				if (deviceInfo.dwType != 2)  // RIM_TYPEHID == 2
-				{
-					var err = new Error("The device is not a HID device.");
-					err.Data.Add("deviceInfo.dwType", deviceInfo.dwType);
-					throw err;
-				}
+			if (deviceInfo.dwType != RIM_TYPEHID)
+			{
+				var err = new Error("The device is not a HID device.");
+				err.Data.Add("deviceInfo.dwType", deviceInfo.dwType);
+				throw err;
+			}
 
-				return deviceInfo;
-            });
+			return deviceInfo;
         }
 
 		private static T WrapMarshalBuffer<T>(int size, Func<IntPtr, T> action)
 		{
 			IntPtr buffer;
-            try
-            {
-                buffer = Marshal.AllocHGlobal(size);
-            }
-            catch (OutOfMemoryException e)
-            {
-                throw new Error("Out of memory. Unable to get raw input info.", e);
-            }
+			try
+			{
+				buffer = Marshal.AllocHGlobal(size);
+			}
+			catch (OutOfMemoryException e)
+			{
+				throw new Error("Out of memory. Unable to get raw input info.", e);
+			}
 
-            try
-            {
+			try
+			{
 				return action(buffer);
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(buffer);
-            }
-        }
+			}
+			finally
+			{
+				Marshal.FreeHGlobal(buffer);
+			}
+		}
 
 		private static string GetDeviceName(IntPtr hDevice)
 		{
-			int size = 0;
+			int chars = 0;
 
-			if (GetRawInputDeviceInfo(hDevice, RIDI_DEVICENAME, IntPtr.Zero, ref size) != 0)
+			if (GetRawInputDeviceInfo(hDevice, RIDI_DEVICENAME, IntPtr.Zero, ref chars) != 0)
 				throw new Error("Unable to get raw input info size.", new Win32Exception(Marshal.GetLastWin32Error()));
 
-			return WrapMarshalBuffer(size, buffer =>
+			IntPtr buffer = Marshal.AllocHGlobal(2 * (chars + 1)); // Unicode characters, null terminated
+
+			string name = "";
+			try
 			{
-				if (GetRawInputDeviceInfo(hDevice, RIDI_DEVICENAME, buffer, ref size) != size)
+				if (GetRawInputDeviceInfo(hDevice, RIDI_DEVICENAME, buffer, ref chars) != chars)
 					throw new Error("Unable to get raw input info.", new Win32Exception(Marshal.GetLastWin32Error()));
 
-				string name = Marshal.PtrToStringUni(buffer);
-				if (string.IsNullOrEmpty(name))
-					throw new Error("Device name was empty.");
+				name = Marshal.PtrToStringUni(buffer);
+			}
+			finally
+			{
+				Marshal.FreeHGlobal(buffer);
+			}
 
-				return name;
-			});
+			return name;
+			
 		}
 
 		private static string GetDeviceManufacturerString(IntPtr hFile)
 		{
-			int bufferSize = 256;
+			string result;
 
-			return WrapMarshalBuffer(bufferSize, buffer => {
+			int bufferSize = 1024;
+			IntPtr buffer = Marshal.AllocHGlobal(bufferSize);
+
+			try
+			{
 				if (!HidD_GetManufacturerString(hFile, buffer, bufferSize))
 					throw new Error("Unable to get device manufacturer string.", new Win32Exception(Marshal.GetLastWin32Error()));
 
-				string result = Marshal.PtrToStringUni(buffer);
-				if (string.IsNullOrEmpty(result))
-					throw new Error("Unable to get device manufacturer string.", new Win32Exception(Marshal.GetLastWin32Error()));
+				result = Marshal.PtrToStringUni(buffer);
+			}
+			finally
+			{
+				Marshal.FreeHGlobal(buffer);
+			}
 
-				return result;
-			});
+			return result;
+			
 		}
 
 		private static string GetDeviceProductName(IntPtr hFile)
 		{
-			int bufferSize = 256;
+			string result;
 
-			return WrapMarshalBuffer(bufferSize, buffer =>
+			int bufferSize = 1024;
+			IntPtr buffer = Marshal.AllocHGlobal(bufferSize);
+
+			try
 			{
 				if (!HidD_GetProductString(hFile, buffer, bufferSize))
 					throw new Error("Unable to get device product string.", new Win32Exception(Marshal.GetLastWin32Error()));
 
-				return Marshal.PtrToStringUni(buffer);
-			});
+				result = Marshal.PtrToStringUni(buffer);
+			}
+			finally 
+			{ 
+				Marshal.FreeHGlobal(buffer); 
+			}
+
+			return result;
         }
 
-		private static string GetDeviceSerialNumberString(IntPtr hFile)
-		{
-			int bufferSize = 256;
-			return WrapMarshalBuffer(bufferSize, buffer =>
-			{
-				if (!HidD_GetSerialNumberString(hFile, buffer, bufferSize))
-					throw new Error("Unable to get device serial number.", new Win32Exception(Marshal.GetLastWin32Error()));
+		//private static string GetDeviceSerialNumberString(IntPtr hFile)
+		//{
+		//	int bufferSize = 1024;
+		//	return WrapMarshalBuffer(bufferSize, buffer =>
+		//	{
+		//		if (!HidD_GetSerialNumberString(hFile, buffer, bufferSize))
+		//			throw new Error("Unable to get device serial number.", new Win32Exception(Marshal.GetLastWin32Error()));
 
-				return Marshal.PtrToStringUni(buffer);
-			});
-        }
+		//		return Marshal.PtrToStringUni(buffer);
+		//	});
+		//}
 
 		private static string HidResultToErrorString(uint r)
 		{

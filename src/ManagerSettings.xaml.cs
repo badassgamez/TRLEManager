@@ -35,7 +35,6 @@ namespace TRLEManager
 		{
 			InitializeComponent();
 
-			
 			_selectedGamepad = App.GetGamepadInfo();
 			_gamepadMap = App.GetGamepadMapping();
 			_virtualMap = App.GetVirtualGamepadMapping();
@@ -49,8 +48,6 @@ namespace TRLEManager
 			TextBox_GamepadName.Text = _selectedGamepad?.ToString();
 
 			PopulateKeyboardMap();
-
-			HookGamepad();
 
 			ShowHideAuxButtons();
 		}
@@ -170,7 +167,7 @@ namespace TRLEManager
 
 			_gamepad = _selectedGamepad.ToGamepad();
 			_gamepad.OnGamepadChanged += _gamepad_OnGamepadChanged;
-			
+
 			_gamepad.StartMonitor();
 		}
 
@@ -251,7 +248,7 @@ namespace TRLEManager
 			var result = new StringBuilder();
 
 			for (int i = 0; i < _gamepadMap.Length; i++)
-				result.Append($"{i}={_gamepadMap[i]}\n");
+				result.Append($"{(ushort)_gamepadMap[i]}\n");
 
 			if (result.Length > 0)
 				result.Length -= 1;
@@ -263,7 +260,7 @@ namespace TRLEManager
 		{
 			var builder = _virtualMap.Aggregate(new StringBuilder(), (result, mapping) =>
 			{
-				result.Append($"{mapping.Key}={mapping.Value}\n");
+				result.Append($"{(ushort)mapping.Key}={mapping.Value}\n");
 				return result;
 			});
 
@@ -277,7 +274,7 @@ namespace TRLEManager
 		{
 			var builder = _keyboardMap.Aggregate(new StringBuilder(), (result, mapping) =>
 			{
-				result.Append($"{mapping.Key}={(int)mapping.Value}\n");
+				result.Append($"{mapping.Key}={(ushort)mapping.Value}\n");
 				return result;
 			});
 
@@ -353,7 +350,7 @@ namespace TRLEManager
 			if (_gamepad == null)
 				return;
 
-			_gamepad.StopMonitor();
+			_gamepad?.StopMonitor();
 		}
 
 		private void TextBox_Keybd_LostFocus(object sender, RoutedEventArgs e)
@@ -413,6 +410,11 @@ namespace TRLEManager
 		private void Radio_PausShift_Checked(object sender, RoutedEventArgs e)
 		{
 			PopulateVirtualGamepadMap(GamepadShift.MenuShifted);
+		}
+
+		private void Window_Loaded(object sender, RoutedEventArgs e)
+		{
+			HookGamepad();
 		}
 	}
 }
