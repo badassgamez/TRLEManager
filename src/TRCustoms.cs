@@ -18,7 +18,7 @@ namespace TRLEManager
 		public const string TRCustomsJSONInfoPageTemplate = TRCustomsURL + "/api/levels/{0}";
 		public const string TRCustomsInfopageURLTemplate = TRCustomsURL + "/levels/{0}";
 		//public const string TRCustomsDownloadURLTemplate = TRCustomsURL + "/api/level_files/{0}/download";
-		public const string TRCustomsWalkthroughURLTemplate = TRCustomsURL + "/api/level_files/{0}/download";
+		public const string TRCustomsWalkthroughURLTemplate = TRCustomsURL + "/levels/{0}/walkthroughs";
 
 		public uint ID { get; private set; }
 		public string Title { get; private set; }
@@ -26,8 +26,9 @@ namespace TRLEManager
 		public string WebpageURL { get; private set; }
 		public string DownloadURL { get; private set; }
 		public string WalkthroughURL { get; private set; }
+		public uint TRLENetID { get; private set; }
 
-		public static TRCustomsInfo CreateFromInfoPage(string infopage)
+        public static TRCustomsInfo CreateFromInfoPage(string infopage)
 		{
 			var result = new TRCustomsInfo();
 
@@ -39,11 +40,14 @@ namespace TRLEManager
 			result.Title = jsonObject["name"]?.ToString();
 			uint.TryParse(acquiredTRCustomsID, out uint trCustomsID);
 			result.ID = trCustomsID;
-
 			
 			result.WalkthroughURL = string.Format(TRCustomsWalkthroughURLTemplate, trCustomsID);
 
-			var authors = jsonObject["authors"] as JArray;
+            string acquiredTRLENetID = jsonObject["trle_id"]?.ToString();
+            uint.TryParse(acquiredTRLENetID, out uint trleNetID);
+			result.TRLENetID = trleNetID;
+
+            var authors = jsonObject["authors"] as JArray;
 
 			StringBuilder concat_authors = new StringBuilder();
 			foreach (object author in authors) {
