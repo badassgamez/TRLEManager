@@ -18,7 +18,7 @@ namespace TRLEManager
 		public const string TRCustomsJSONInfoPageTemplate = TRCustomsURL + "/api/levels/{0}";
 		public const string TRCustomsInfopageURLTemplate = TRCustomsURL + "/levels/{0}";
 		//public const string TRCustomsDownloadURLTemplate = TRCustomsURL + "/api/level_files/{0}/download";
-		public const string TRCustomsWalkthroughURLTemplate = TRCustomsURL + "/api/level_files/{0}/download";
+		public const string TRCustomsWalkthroughURLTemplate = TRCustomsURL + "/levels/{0}/walkthroughs";
 
 		public uint ID { get; private set; }
 		public string Title { get; private set; }
