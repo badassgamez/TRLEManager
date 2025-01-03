@@ -14,6 +14,10 @@ namespace TRLEManager
                 {
                     var destinationPath = Path.Combine(destinationDirectoryName, entry.FullName);
                     var isFile = !string.IsNullOrEmpty(Path.GetExtension(destinationPath));
+                    var directoryName = Path.GetDirectoryName(destinationPath);
+
+                    if(!Directory.Exists(directoryName))
+                        Directory.CreateDirectory(Path.GetDirectoryName(destinationPath));
 
                     if (!isFile)
                     {

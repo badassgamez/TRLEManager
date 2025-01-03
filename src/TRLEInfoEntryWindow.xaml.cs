@@ -112,6 +112,7 @@ namespace TRLEManager
 				TextBox_InfoWebpage.Text = info.WebpageURL;
 				TextBox_DownloadURL.Text = info.DownloadURL;
 				TextBox_WalkthroughURL.Text = info.WalkthroughURL;
+				TextBox_TRLENetID.Text = info.TRLENetID.ToString();
 			}
 			catch (Error e)
 			{
