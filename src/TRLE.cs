@@ -576,7 +576,17 @@ namespace TRLEManager
 			string installPathBase = App.GetInstallPathBase().FullName;
             try
             {
-                return Path.Combine(installPathBase, Regex.Replace(Name, "[*/\\<>:|?]", ""));
+                string installPath = Path.Combine(installPathBase, Regex.Replace(Name, "[*/\\<>:|?]", ""));
+				if (!string.IsNullOrEmpty(TRLENetID))
+				{
+					installPath += $"-TRLENET-{TRLENetID}";
+				}
+				else if (!string.IsNullOrEmpty(TRCustomsID))
+				{
+					installPath += $"-TRCUSTOMS-{TRCustomsID}";
+				}
+
+				return installPath;
             }
             catch (Exception e) when (
                 e is ArgumentException

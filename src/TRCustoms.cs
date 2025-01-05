@@ -26,7 +26,7 @@ namespace TRLEManager
 		public string WebpageURL { get; private set; }
 		public string DownloadURL { get; private set; }
 		public string WalkthroughURL { get; private set; }
-		public uint TRLENetID { get; private set; }
+		// public uint TRLENetID { get; private set; }
 
         public static TRCustomsInfo CreateFromInfoPage(string infopage)
 		{
@@ -43,9 +43,9 @@ namespace TRLEManager
 			
 			result.WalkthroughURL = string.Format(TRCustomsWalkthroughURLTemplate, trCustomsID);
 
-            string acquiredTRLENetID = jsonObject["trle_id"]?.ToString();
-            uint.TryParse(acquiredTRLENetID, out uint trleNetID);
-			result.TRLENetID = trleNetID;
+   //         string acquiredTRLENetID = jsonObject["trle_id"]?.ToString();
+   //         uint.TryParse(acquiredTRLENetID, out uint trleNetID);
+			//result.TRLENetID = trleNetID;
 
             var authors = jsonObject["authors"] as JArray;
 

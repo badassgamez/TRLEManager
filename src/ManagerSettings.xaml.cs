@@ -9,6 +9,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -253,7 +254,9 @@ namespace TRLEManager
 			if (result.Length > 0)
 				result.Length -= 1;
 
-			Settings.Default.GamepadMapping = result.ToString();
+			//Settings.Default.GamepadMapping = result.ToString();
+			string gamepadControlsFile = App.GetAppFolder("").FullName + "GamepadMapping.txt";
+			File.WriteAllText(gamepadControlsFile, result.ToString());
 		}
 
 		private void SaveGameKeyControls()
@@ -267,7 +270,9 @@ namespace TRLEManager
 			if (builder.Length > 0)
 				builder.Length -= 1;
 
-			Settings.Default.GameKeyMapping = builder.ToString();
+			//Settings.Default.GameKeyMapping = builder.ToString();
+			string gamekeyControlsFile = App.GetAppFolder("").FullName + "VirtualMapping.txt";
+			File.WriteAllText(gamekeyControlsFile, builder.ToString());
 		}
 
 		private void SaveKeyboardControls()
@@ -281,31 +286,46 @@ namespace TRLEManager
 			if (builder.Length > 0) 
 				builder.Length -= 1;
 
-			Settings.Default.KeyboardMapping = builder.ToString();
+			//Settings.Default.KeyboardMapping = builder.ToString();
+			string keyboardControlsFile = App.GetAppFolder("").FullName + "KeyboardMapping.txt";
+			File.WriteAllText(keyboardControlsFile, builder.ToString());
 		}
 
 		private void Button_OK_Click(object sender, RoutedEventArgs e)
 		{
 			string windowsPathPattern = "^[a-zA-Z]:\\\\(?:[^\\/:*?\\\"<>|]+\\\\?)*$";
 
+			StringBuilder settingsBuilder = new StringBuilder();
+			
+
 			string trleInstallPath = TextBox_TRLEInstallPath.Text;
 			if (Regex.Match(trleInstallPath, windowsPathPattern).Success)
-				Settings.Default.TRLEInstallPath = trleInstallPath;
+				settingsBuilder.Append($"trleInstallPath={trleInstallPath}\n");
+				//Settings.Default.TRLEInstallPath = trleInstallPath;
 
 			string downloadsPath = TextBox_DownloadsPath.Text;
 			if (Regex.Match(downloadsPath, windowsPathPattern).Success)
-				Settings.Default.DownloadPath = downloadsPath;
+				settingsBuilder.Append($"downloadsPath={downloadsPath}\n");
+				//Settings.Default.DownloadPath = downloadsPath;
 
 			string browseTrleUrl = TextBox_BrowseTRLEURL.Text;
 			if (App.IsUrl(browseTrleUrl))
-				Settings.Default.BrowseTRLEURL = browseTrleUrl;
+				settingsBuilder.Append($"browseTrleUrl={browseTrleUrl}\n");
+				//Settings.Default.BrowseTRLEURL = browseTrleUrl;
 
 			if (_selectedGamepad != null)
-				Settings.Default.SelectedGamepad = _selectedGamepad.Serialize();
+				settingsBuilder.Append($"selectedGamepad={_selectedGamepad.Serialize()}\n");
+				//Settings.Default.SelectedGamepad = _selectedGamepad.Serialize();
+			
+			DirectoryInfo appDir = App.GetAppFolder("");
+			string generalSettingsFile = appDir.FullName + "GeneralSettings.txt";
+
+			File.WriteAllText(generalSettingsFile, settingsBuilder.ToString());
 
 			SaveGamepadControls();
 			SaveGameKeyControls();
 			SaveKeyboardControls();
+
 			Close();
         }
 

@@ -216,8 +216,8 @@
             <TextBox Tag="8" Name="TextBox_Keybd_8" IsReadOnly="True" Grid.Column="7" Grid.Row="2" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
             <TextBox Tag="9" Name="TextBox_Keybd_9" IsReadOnly="True" Grid.Column="7" Grid.Row="3" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
             <TextBox Tag="0" Name="TextBox_Keybd_0" IsReadOnly="True" Grid.Column="7" Grid.Row="4" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
-            <TextBox Tag="QuickLoad" Name="TextBox_Keybd_QuickLoad" IsReadOnly="True" Grid.Column="5" Grid.Row="6" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
-            <TextBox Tag="QuickSave" Name="TextBox_Keybd_QuickSave" IsReadOnly="True" Grid.Column="5" Grid.Row="7" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Quick Load" Name="TextBox_Keybd_QuickLoad" IsReadOnly="True" Grid.Column="5" Grid.Row="6" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
+            <TextBox Tag="Quick Save" Name="TextBox_Keybd_QuickSave" IsReadOnly="True" Grid.Column="5" Grid.Row="7" Width="75" LostFocus="TextBox_Keybd_LostFocus" MouseDoubleClick="TextBox_Keybd_DoubleClick"/>
         </Grid>
 
         <StackPanel Grid.Column="1" Grid.Row="7" Orientation="Horizontal" HorizontalAlignment="Right">

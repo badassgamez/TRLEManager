@@ -33,7 +33,7 @@ namespace TRLEManager
 			serialized.Append($"ProductName={ProductName}\n");
 			//serialized.Append($"SerialNumber={SerialNumber}\n");
 
-			return serialized.ToString();
+			return App.ToBase64(serialized.ToString());
 		}
 
 		public bool IsConnected()

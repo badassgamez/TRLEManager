@@ -91,9 +91,37 @@ namespace TRLEManager
             MessageBox.Show(owner ?? Window, message, "TRLE Manager Error", MessageBoxButton.OK, MessageBoxImage.Exclamation);
         }
 
+		public static string GetGeneralSetting(string setting)
+		{
+			string generalSettingsFile = GetAppFolder("").FullName + "GeneralSettings.txt";
+			if (!File.Exists(generalSettingsFile))
+				return null;
+
+			string generalSettingsContent = File.ReadAllText(generalSettingsFile);
+
+			string[] settings = generalSettingsContent.Split('\n');
+			foreach (var settingKVP in settings)
+			{
+				int equalPos = settingKVP.IndexOf('=');
+				if (equalPos == -1) continue;
+
+				if (settingKVP.Substring(0, equalPos) == setting)
+					return settingKVP.Substring(equalPos + 1);
+			}
+
+			return null;
+		}
+
         public static string GetBrowseTRLEURL()
         {
-            return Settings.Default.BrowseTRLEURL;
+			string browseTrleSetting = GetGeneralSetting("browseTrleUrl");
+
+			if (browseTrleSetting == null)
+			{
+				return Settings.Default.BrowseTRLEURL;
+			}
+
+			return browseTrleSetting;
         }
 
         private static DirectoryInfo GetDirectoryInfo(string path)
@@ -147,42 +175,53 @@ namespace TRLEManager
 
 		public static DirectoryInfo GetDownloadDirectory()
 		{
-			string downloadPath = Settings.Default.DownloadPath;
-
+			string downloadPath = GetGeneralSetting("downloadsPath");
+			
+			if (downloadPath == null)
+			{
+				downloadPath = Settings.Default.DownloadPath;
+			}
+			
 			if (!string.IsNullOrEmpty(downloadPath))
                 return GetDirectoryInfo(downloadPath);
             
 			var dirInfo = GetAppFolder("Downloads");
-			Settings.Default.DownloadPath = dirInfo.FullName;
+			// Settings.Default.DownloadPath = dirInfo.FullName;
 
 			return dirInfo;
 		}
 		
 		public static DirectoryInfo GetInstallPathBase()
 		{
-			string installPath = Settings.Default.TRLEInstallPath;
+			string installPath = GetGeneralSetting("trleInstallPath");//Settings.Default.TRLEInstallPath;
 
-			if (!string.IsNullOrEmpty(installPath))
+            if (string.IsNullOrEmpty(installPath))
+            {
+                installPath = Settings.Default.TRLEInstallPath;
+			}
+
+            if (!string.IsNullOrEmpty(installPath))
 				return GetDirectoryInfo(installPath);
 
 			var installPathBase = GetAppFolder("TRLEs");
-			Settings.Default.TRLEInstallPath = installPathBase.FullName;
+			//Settings.Default.TRLEInstallPath = installPathBase.FullName;
 		
 			return installPathBase;
 		}
 
 		public static DirectoryInfo GetErrorLogDirectory()
 		{
-            string errLogPath = Settings.Default.ErrorLogDirectory;
+			return GetAppFolder("ErrLogs");
+			//string errLogPath = Settings.Default.ErrorLogDirectory;
 
-            if (!string.IsNullOrEmpty(errLogPath))
-                return GetDirectoryInfo(errLogPath);
+			//if (!string.IsNullOrEmpty(errLogPath))
+			//    return GetDirectoryInfo(errLogPath);
 
-            var errLogDir = GetAppFolder("ErrLogs");
-            Settings.Default.ErrorLogDirectory = errLogDir.FullName;
+			//var errLogDir = GetAppFolder("ErrLogs");
+			//Settings.Default.ErrorLogDirectory = errLogDir.FullName;
 
-            return errLogDir;
-        }
+			//return errLogDir;
+		}
 
 		public static Rect GetMainWindowRect()
 		{
@@ -205,7 +244,32 @@ namespace TRLEManager
 
 		public static GamepadInfo GetGamepadInfo()
 		{
-			string selectedGamepad = Settings.Default.SelectedGamepad;
+			string generalSettingsFile = GetAppFolder("").FullName + "GeneralSettings.txt";
+			string selectedGamepad = null;
+
+			if (File.Exists(generalSettingsFile))
+			{
+				string generalSettingsContent = File.ReadAllText(generalSettingsFile);
+
+				string[] generalSettings = generalSettingsContent.Split('\n');
+
+				foreach (string settingKVP in generalSettings)
+				{
+					int equalsPos = settingKVP.IndexOf('=');
+					if (equalsPos == -1) continue;
+
+					string settingName = settingKVP.Substring(0, equalsPos);
+					if (settingName == "selectedGamepad")
+					{
+						selectedGamepad = FromBase64(settingKVP.Substring(equalsPos + 1));
+					}
+				}
+			}
+			else
+			{
+				selectedGamepad = Settings.Default.SelectedGamepad;
+			}
+
 			if (!string.IsNullOrEmpty(selectedGamepad))
 			{
 				var info = GamepadInfo.Deserialize(selectedGamepad);
@@ -236,7 +300,18 @@ namespace TRLEManager
 
         public static VirtualGamepadButton[] GetGamepadMapping()
 		{
-			string gamepadMapping = Settings.Default.GamepadMapping;
+			string gamepadControlsFile = App.GetAppFolder("").FullName + "GamepadMapping.txt";
+			string gamepadMapping = null;
+
+			if (File.Exists(gamepadControlsFile))
+			{
+				gamepadMapping = File.ReadAllText(gamepadControlsFile);
+			}
+			else
+			{
+				gamepadMapping = Settings.Default.GamepadMapping;
+			}
+
 			if (!string.IsNullOrEmpty(gamepadMapping))
 			{
 				string[] split = gamepadMapping.Split('\n');
@@ -289,7 +364,17 @@ namespace TRLEManager
 
 		public static Dictionary<VirtualGamepadButton, string> GetVirtualGamepadMapping()
 		{
-			string gameKeyMapping = Settings.Default.GameKeyMapping;
+			string gamekeyControlsFile = App.GetAppFolder("").FullName + "VirtualMapping.txt";
+			string gameKeyMapping = null;
+
+			if (File.Exists(gamekeyControlsFile))
+			{
+				gameKeyMapping = File.ReadAllText(gamekeyControlsFile);
+			}
+			else
+			{
+				gameKeyMapping = Settings.Default.GameKeyMapping;
+			}
 
 			if (!string.IsNullOrEmpty(gameKeyMapping))
 			{
@@ -371,7 +456,17 @@ namespace TRLEManager
 
 		public static Dictionary<string, Key> GetKeyboardMapping()
 		{
-			string keyboardMapping = Settings.Default.KeyboardMapping;
+			string keyboardControlsFile = App.GetAppFolder("").FullName + "KeyboardMapping.txt";
+			string keyboardMapping = null;
+
+			if (File.Exists(keyboardControlsFile))
+			{
+				keyboardMapping = File.ReadAllText(keyboardControlsFile);
+			}
+			else
+			{
+				keyboardMapping = Settings.Default.KeyboardMapping;
+			}
 
 			if (!string.IsNullOrEmpty(keyboardMapping))
 			{

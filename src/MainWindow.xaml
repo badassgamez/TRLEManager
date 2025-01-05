@@ -12,7 +12,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:TRLEManager"
         mc:Ignorable="d"
-        Title="TRLE Manager v0.2.1" Height="450" Width="800" Style="{StaticResource AppWindowStyle}" Closing="Window_Closing">
+        Title="TRLE Manager v0.3.0" Height="450" Width="800" Style="{StaticResource AppWindowStyle}" Closing="Window_Closing">
     <Window.Resources>
         <BitmapImage x:Key="RunImage" UriSource="pack://application:,,,/Images/Run.png" />
         <BitmapImage x:Key="SetupImage" UriSource="pack://application:,,,/Images/Settings.png" />
@@ -50,6 +50,7 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                             <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <Grid.ContextMenu>
                             <ContextMenu>
@@ -83,7 +84,14 @@
                             <TextBlock Text="{Binding DriveSpaceUsed}" Foreground="#E0E0E0" FontSize="12" FontWeight="Black" Margin="5,5,5,5"/>
                         </StackPanel>
 
-                        <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right" Loaded="ListBox_InstalledTRLEs_StackPanel_Loaded">
+                        <StackPanel Grid.Column="2" Orientation="Horizontal">
+                            <Rectangle Width="5" Height="5"></Rectangle>
+                            <Rectangle Width="5" Height="5"></Rectangle>
+                            <Rectangle Width="5" Height="5"></Rectangle>
+                            <Rectangle Width="5" Height="5"></Rectangle>
+                            <Rectangle Width="5" Height="5"></Rectangle>
+                        </StackPanel>
+                        <StackPanel Grid.Column="3" Orientation="Horizontal" HorizontalAlignment="Right" Loaded="ListBox_InstalledTRLEs_StackPanel_Loaded">
                             <Button Name="Button_PlayTRLE" Width="50" Height="50" Click="Button_PlayTRLE_Click">
                                 <Image Source="{StaticResource ResourceKey=RunImage}" />
                             </Button>

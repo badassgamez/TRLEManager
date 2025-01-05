@@ -8,6 +8,7 @@
 */
 
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Windows.Controls;
 using TRLEManager.Properties;
 
@@ -19,7 +20,21 @@ namespace TRLEManager
 
 		public static void LoadFromSettings()
 		{
-			_trles = TRLE.BulkDeserialize<ObservableCollection<TRLE>>(Settings.Default.TRLECollection);
+			// See if the TRLE list file exists (TRLEList.txt)
+			DirectoryInfo appFolder = App.GetAppFolder("");
+			string trleListFile = appFolder.FullName + "TRLEList.txt";
+
+			if (File.Exists(trleListFile))
+			{
+				string trleListFileContent = File.ReadAllText(trleListFile);
+				_trles = TRLE.BulkDeserialize<ObservableCollection<TRLE>>(trleListFileContent);
+			}
+			else
+			{
+				// If the file doesn't exist, then check the old settings (backward compatibility)
+				_trles = TRLE.BulkDeserialize<ObservableCollection<TRLE>>(Settings.Default.TRLECollection);
+			}
+
 			_trles.CollectionChanged += TRLECollection_CollectionChanged;
 		}
 
@@ -30,7 +45,10 @@ namespace TRLEManager
 
 		public static void SaveToSettings()
 		{
-			Settings.Default.TRLECollection = TRLE.BulkSerialize(_trles);
+			DirectoryInfo appFolder = App.GetAppFolder("");
+			string trleListFile = appFolder.FullName + "TRLEList.txt";
+			string serialized = TRLE.BulkSerialize(_trles);
+			File.WriteAllText(trleListFile, serialized);
 		}
 
 		public static void SetAsItemsSource(ItemsControl ctrl)
@@ -45,8 +63,7 @@ namespace TRLEManager
 			_trles.Insert(index, info);
 			_trles.CollectionChanged += TRLECollection_CollectionChanged;
 
-			Settings.Default.TRLECollection = TRLE.BulkSerialize(_trles);
-			Settings.Default.Save();
+			SaveToSettings();
 		}
 
 		public static int GetTRLEIndexByEXEPath(string exePath)
