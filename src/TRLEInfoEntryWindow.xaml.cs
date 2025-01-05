@@ -260,5 +260,33 @@ namespace TRLEManager
 			if (e.Key == Key.Enter) 
 				TRCustomsLookup();
 		}
-	}
+
+		private void Button_BrowseZIP_Click(object sender, RoutedEventArgs e)
+		{
+			var ofd = new OpenFileDialog()
+			{
+				Title = "Select TRLE Zip location...",
+				CheckFileExists = true,
+				Filter = "Zip files|*.zip"
+			};
+
+			string knownZipPath = TextBox_InfoZIPPath.Text;
+			if (!string.IsNullOrEmpty(knownZipPath))
+			{
+				try
+				{
+					string parentDir = Path.GetDirectoryName(knownZipPath);
+					if (!string.IsNullOrEmpty(parentDir))
+						ofd.InitialDirectory = parentDir;
+				}
+				catch (ArgumentException) { }
+				catch (PathTooLongException) { }
+			}
+
+			if (ofd.ShowDialog() != true)
+				return;
+
+			TextBox_InfoZIPPath.Text = ofd.FileName;
+		}
+    }
 }

@@ -126,7 +126,11 @@ namespace TRLEManager
 		private void _p_Exited(object sender, EventArgs e)
 		{
 			_p = null;
-			_gamepad?.StopMonitor();
+			if (_gamepad != null)
+			{
+				_gamepad.StopMonitor();
+				ReleaseAllKeys();
+			}
 
 			OnClosed?.Invoke(this, null);
 		}
@@ -223,6 +227,14 @@ namespace TRLEManager
 				err.Data.Add("sc", sc);
 				err.Data.Add("keyDown", keyDown);
 				throw err;
+			}
+		}
+
+		void ReleaseAllKeys()
+		{
+			foreach (var key in _vpadToKey)
+			{
+				SendKey(key, false);
 			}
 		}
 	}
