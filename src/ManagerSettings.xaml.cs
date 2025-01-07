@@ -36,21 +36,29 @@ namespace TRLEManager
 		{
 			InitializeComponent();
 
-			_selectedGamepad = App.GetGamepadInfo();
-			_gamepadMap = App.GetGamepadMapping();
-			_virtualMap = App.GetVirtualGamepadMapping();
-			_keyboardMap = App.GetKeyboardMapping();
+			try
+			{
+				_selectedGamepad = App.GetGamepadInfo();
+				_gamepadMap = App.GetGamepadMapping();
+				_virtualMap = App.GetVirtualGamepadMapping();
+				_keyboardMap = App.GetKeyboardMapping();
 
-			Radio_NoShift.IsChecked = true;
+				Radio_NoShift.IsChecked = true;
 
-			TextBox_TRLEInstallPath.Text = App.GetInstallPathBase().FullName;
-			TextBox_DownloadsPath.Text = App.GetDownloadDirectory().FullName;
-			TextBox_BrowseTRLEURL.Text = App.GetBrowseTRLEURL();
-			TextBox_GamepadName.Text = _selectedGamepad?.ToString();
+				TextBox_TRLEInstallPath.Text = App.GetInstallPathBase().FullName;
+				TextBox_DownloadsPath.Text = App.GetDownloadDirectory().FullName;
+				TextBox_BrowseTRLEURL.Text = App.GetBrowseTRLEURL();
+				TextBox_GamepadName.Text = _selectedGamepad?.ToString();
 
-			PopulateKeyboardMap();
+				PopulateKeyboardMap();
 
-			ShowHideAuxButtons();
+				ShowHideAuxButtons();
+			}
+			catch (Error e)
+			{
+				e.LogError();
+				MessageBox.Show("There was an error loading the settings window. A log has been generated.", "Manager Settings Load Error", MessageBoxButton.OK, MessageBoxImage.Error);
+			}
 		}
 
 		private void PopulateKeyboardMap()
@@ -166,10 +174,18 @@ namespace TRLEManager
 			if (_selectedGamepad == null)
 				return;
 
-			_gamepad = _selectedGamepad.ToGamepad();
-			_gamepad.OnGamepadChanged += _gamepad_OnGamepadChanged;
+			try
+			{
+				_gamepad = _selectedGamepad.ToGamepad();
+				_gamepad.OnGamepadChanged += _gamepad_OnGamepadChanged;
 
-			_gamepad.StartMonitor();
+				_gamepad.StartMonitor();
+			}
+			catch (Error e)
+			{
+				e.LogError();
+				MessageBox.Show("Failed to hook gamepad. This error has been logged.", "Hook Gamepad Error", MessageBoxButton.OK, MessageBoxImage.Error);
+			}
 		}
 
 		private void _gamepad_OnGamepadChanged(object sender, GamepadChangedEventArgs e)

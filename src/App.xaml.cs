@@ -97,16 +97,32 @@ namespace TRLEManager
 			if (!File.Exists(generalSettingsFile))
 				return null;
 
-			string generalSettingsContent = File.ReadAllText(generalSettingsFile);
+			string generalSettingsContent = ReadAllFileText(generalSettingsFile);
 
 			string[] settings = generalSettingsContent.Split('\n');
 			foreach (var settingKVP in settings)
 			{
 				int equalPos = settingKVP.IndexOf('=');
-				if (equalPos == -1) continue;
+				if (equalPos == -1)
+				{
+					Error err = new Error("Invalid general settings format, expected =");
+					err.Data.Add("settingKVP", settingKVP.ToString());
+					
+					err.LogError();
+				};
 
-				if (settingKVP.Substring(0, equalPos) == setting)
-					return settingKVP.Substring(equalPos + 1);
+				try
+				{
+					if (settingKVP.Substring(0, equalPos) == setting)
+						return settingKVP.Substring(equalPos + 1);
+				}
+				catch (Exception e) when
+					(e is ArgumentOutOfRangeException)
+				{
+					Error err = new Error("Invalid general settings format, unable to parse key-value pair", e);
+					err.Data.Add("settingKVP", settingKVP.ToString());
+					err.Data.Add("generalSettingsContent", generalSettingsContent);
+				}
 			}
 
 			return null;
@@ -244,26 +260,11 @@ namespace TRLEManager
 
 		public static GamepadInfo GetGamepadInfo()
 		{
-			string generalSettingsFile = GetAppFolder("").FullName + "GeneralSettings.txt";
-			string selectedGamepad = null;
+			string selectedGamepad = GetGeneralSetting("selectedGamepad");
 
-			if (File.Exists(generalSettingsFile))
+			if (!string.IsNullOrEmpty(selectedGamepad)) 
 			{
-				string generalSettingsContent = File.ReadAllText(generalSettingsFile);
-
-				string[] generalSettings = generalSettingsContent.Split('\n');
-
-				foreach (string settingKVP in generalSettings)
-				{
-					int equalsPos = settingKVP.IndexOf('=');
-					if (equalsPos == -1) continue;
-
-					string settingName = settingKVP.Substring(0, equalsPos);
-					if (settingName == "selectedGamepad")
-					{
-						selectedGamepad = FromBase64(settingKVP.Substring(equalsPos + 1));
-					}
-				}
+				selectedGamepad = FromBase64(selectedGamepad);
 			}
 			else
 			{
@@ -278,9 +279,7 @@ namespace TRLEManager
 			}
 
 			var devices = Gamepad.Devices.GetDevices();
-			//var info = devices.GetInfo(0);
 			return devices.DeviceCount != 0 ? devices.GetInfo(0) : null;
-			//return null;
 		}
 
 		public static void RunTRLE(TRLE trle)
@@ -300,12 +299,12 @@ namespace TRLEManager
 
         public static VirtualGamepadButton[] GetGamepadMapping()
 		{
-			string gamepadControlsFile = App.GetAppFolder("").FullName + "GamepadMapping.txt";
-			string gamepadMapping = null;
+			string gamepadControlsFile = GetAppFolder("").FullName + "GamepadMapping.txt";
+			string gamepadMapping;
 
 			if (File.Exists(gamepadControlsFile))
 			{
-				gamepadMapping = File.ReadAllText(gamepadControlsFile);
+				gamepadMapping = ReadAllFileText(gamepadControlsFile);
 			}
 			else
 			{
@@ -317,27 +316,22 @@ namespace TRLEManager
 				string[] split = gamepadMapping.Split('\n');
 				VirtualGamepadButton[] mapping = new VirtualGamepadButton[split.Length];
 
-				try
+				
+				for (int i = 0; i < split.Length; i++)
 				{
-					for (int i = 0; i < split.Length; i++)
+					if (!uint.TryParse(split[i], out uint v))
 					{
-						if (!uint.TryParse(split[i], out uint v))
-						{
-							var err = new Error($"While attempting to recall Gamepad Mapping settings, Integer parse failure");
-							err.Data.Add($"current split", split[i]);
-							err.Data.Add($"full setting", gamepadMapping);
-							throw err;
-						}
+						var err = new Error($"While attempting to recall Gamepad Mapping settings, Integer parse failure");
+						err.Data.Add($"current split", split[i]);
+						err.Data.Add($"full setting", gamepadMapping);
 
-						mapping[i] = (VirtualGamepadButton)v;
+						err.LogError();
 					}
 
-					return mapping;
-
-				} catch (Error e)
-				{
-					Error.LogException(e);
+					mapping[i] = (VirtualGamepadButton)v;
 				}
+
+				return mapping;
 			}
 
 			return new VirtualGamepadButton[]
@@ -362,6 +356,30 @@ namespace TRLEManager
 			};
 		}
 
+		public static string ReadAllFileText(string path)
+		{
+			try
+			{
+				return File.ReadAllText(path);
+			}
+			catch (Exception e) when
+				(e is ArgumentException
+				|| e is ArgumentNullException
+				|| e is PathTooLongException
+				|| e is DirectoryNotFoundException
+				|| e is IOException
+				|| e is UnauthorizedAccessException
+				|| e is FileNotFoundException 
+				|| e is NotSupportedException
+				|| e is SecurityException
+				)
+			{
+				Error err = new Error("Failed to read file content", e);
+				err.Data.Add("path", path);
+				throw err;
+			}
+		}
+
 		public static Dictionary<VirtualGamepadButton, string> GetVirtualGamepadMapping()
 		{
 			string gamekeyControlsFile = App.GetAppFolder("").FullName + "VirtualMapping.txt";
@@ -369,7 +387,7 @@ namespace TRLEManager
 
 			if (File.Exists(gamekeyControlsFile))
 			{
-				gameKeyMapping = File.ReadAllText(gamekeyControlsFile);
+				gameKeyMapping = ReadAllFileText(gamekeyControlsFile);
 			}
 			else
 			{
@@ -456,12 +474,12 @@ namespace TRLEManager
 
 		public static Dictionary<string, Key> GetKeyboardMapping()
 		{
-			string keyboardControlsFile = App.GetAppFolder("").FullName + "KeyboardMapping.txt";
+			string keyboardControlsFile = GetAppFolder("").FullName + "KeyboardMapping.txt";
 			string keyboardMapping = null;
 
 			if (File.Exists(keyboardControlsFile))
 			{
-				keyboardMapping = File.ReadAllText(keyboardControlsFile);
+				keyboardMapping = ReadAllFileText(keyboardControlsFile);
 			}
 			else
 			{

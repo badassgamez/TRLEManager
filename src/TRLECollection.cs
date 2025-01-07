@@ -26,7 +26,7 @@ namespace TRLEManager
 
 			if (File.Exists(trleListFile))
 			{
-				string trleListFileContent = File.ReadAllText(trleListFile);
+				string trleListFileContent = App.ReadAllFileText(trleListFile);
 				_trles = TRLE.BulkDeserialize<ObservableCollection<TRLE>>(trleListFileContent);
 			}
 			else

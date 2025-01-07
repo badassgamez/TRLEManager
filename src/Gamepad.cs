@@ -90,8 +90,7 @@ namespace TRLEManager
 		{
 			_threadRunningFlag = false;
 
-			if (!CancelIoEx(_hIO, IntPtr.Zero))
-				new Error("Failed to cancel IO operation on gamepad monitoring thread.", new Win32Exception(Marshal.GetLastWin32Error())).LogError();
+			CancelIoEx(_hIO, IntPtr.Zero);
 		}
 
 		private void MonitorThread()
@@ -215,7 +214,7 @@ namespace TRLEManager
 								}
 							}, null);
 						}
-						Thread.Sleep(1);
+						//Thread.Sleep(1);
 					} // while
 				}
 				finally
